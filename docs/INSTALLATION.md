@@ -25,6 +25,26 @@ systemctl reboot
 
 **Time:** ~5-10 minutes + reboot
 
+**What happens after reboot:**
+- All new features are automatically included (wizard, scripts, configs)
+- Setup wizard won't auto-run (your home directory already exists)
+- Run wizard manually: `car-edge-setup-wizard`
+
+**For existing users rebasing:**
+After reboot, open Desktop Mode (Ctrl+Alt+F3) and run:
+```bash
+car-edge-setup-wizard
+```
+
+This will guide you through:
+- External drive setup
+- Application installation
+- Kodi configuration
+- Syncthing setup (optional)
+- First backup
+
+**Note:** All new features (scripts, configs, auto-run for new users) are included in the rebased image. You just need to run the wizard once manually since you're an existing user.
+
 ---
 
 ### Option B: Fresh ISO Installation

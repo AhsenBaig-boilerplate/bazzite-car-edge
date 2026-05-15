@@ -61,6 +61,10 @@ Bazzite Car Edge is a **minimal, bootable OS image** designed for:
 ```bash
 rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:latest
 systemctl reboot
+
+# After reboot, from Desktop Mode:
+car-edge-upgrade           # Enable Car Edge features (one-time)
+car-edge-setup-wizard      # Run setup wizard
 ```
 
 **Option B: Fresh Install**
