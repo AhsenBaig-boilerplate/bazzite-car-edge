@@ -34,8 +34,10 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build.sh && \
-    install -D -m 755 /ctx/files/install-apps.sh /usr/local/bin/car-edge-install-apps && \
-    install -D -m 755 /ctx/files/backup-configs.sh /usr/local/bin/car-edge-backup
+    cp /ctx/files/install-apps.sh /usr/bin/car-edge-install-apps && \
+    chmod +x /usr/bin/car-edge-install-apps && \
+    cp /ctx/files/backup-configs.sh /usr/bin/car-edge-backup && \
+    chmod +x /usr/bin/car-edge-backup
     
 ### LINTING
 ## Verify final image and contents are correct.
