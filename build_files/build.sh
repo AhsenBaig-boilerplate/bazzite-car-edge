@@ -145,7 +145,14 @@ This will install:
 4. Mount:
    sudo mount -a
 
-📚 DOCUMENTATION
+� BACKUP CONFIGS
+
+Backup your system and user configs (media is on separate drive):
+  car-edge-backup
+
+This saves to: /mnt/storage/backups/configs/
+
+�📚 DOCUMENTATION
 
 Full docs: https://github.com/AhsenBaig-boilerplate/bazzite-car-edge
 

@@ -36,7 +36,9 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     /ctx/build.sh && \
     mkdir -p /usr/local/bin && \
     cp /ctx/files/install-apps.sh /usr/local/bin/car-edge-install-apps && \
-    chmod +x /usr/local/bin/car-edge-install-apps
+    chmod +x /usr/local/bin/car-edge-install-apps && \
+    cp /ctx/files/backup-configs.sh /usr/local/bin/car-edge-backup && \
+    chmod +x /usr/local/bin/car-edge-backup
     
 ### LINTING
 ## Verify final image and contents are correct.
