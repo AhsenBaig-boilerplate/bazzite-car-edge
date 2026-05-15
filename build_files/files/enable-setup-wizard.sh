@@ -6,9 +6,21 @@ set -euo pipefail
 
 echo "Configuring first-boot setup wizard..."
 
-# Install user service file
+# Create systemd user service file
 mkdir -p /etc/skel/.config/systemd/user
-cp /tmp/car-edge-setup-wizard.service /etc/skel/.config/systemd/user/
+cat > /etc/skel/.config/systemd/user/car-edge-setup-wizard.service << 'EOF'
+[Unit]
+Description=Bazzite Car Edge Setup Wizard
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/car-edge-setup-wizard --auto
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target
+EOF
 
 # Create autostart directory in skeleton
 mkdir -p /etc/skel/.config/autostart
@@ -32,9 +44,9 @@ EOF
 if [ -d "/var/home/deck" ]; then
     echo "Enabling wizard for deck user..."
     
-    # Create user systemd directory
+    # Create user systemd directory and copy service file
     mkdir -p /var/home/deck/.config/systemd/user
-    cp /tmp/car-edge-setup-wizard.service /var/home/deck/.config/systemd/user/
+    cp /etc/skel/.config/systemd/user/car-edge-setup-wizard.service /var/home/deck/.config/systemd/user/
     chown -R 1000:1000 /var/home/deck/.config/systemd
     
     # Create autostart directory
