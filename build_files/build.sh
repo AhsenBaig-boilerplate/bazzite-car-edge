@@ -22,6 +22,7 @@ rpm-ostree install \
     curl \
     wget \
     jq \
+    skopeo \
     cifs-utils \
     nfs-utils
 

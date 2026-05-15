@@ -31,6 +31,9 @@ tar -xzf /mnt/storage/backups/configs/bazzite-car-edge-backup-YYYYMMDD-HHMMSS.ta
 # Check for updates (downloads in background if available)
 car-edge-check-updates
 
+# Switch to specific version (interactive GUI)
+car-edge-switch-version
+
 # Apply staged update (reboots system)
 car-edge-apply-update
 
