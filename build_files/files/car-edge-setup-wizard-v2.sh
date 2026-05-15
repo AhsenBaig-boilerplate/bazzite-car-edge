@@ -224,12 +224,20 @@ Recommended: 500GB+ or larger"; then
     
     log "User wants to set up storage drive"
     
-    # Get root device (what the OS is on)
-    root_device=$(lsblk -no PKNAME "$(df / | tail -1 | awk '{print $1}')" 2>/dev/null || echo "")
-    log "Root device detected: $root_device"
+    # Get root device (what the OS is on) - get the actual disk, not partition
+    root_partition=$(df / | tail -1 | awk '{print $1}')
+    root_device=$(lsblk -no PKNAME "$root_partition" 2>/dev/null || echo "")
     
-    # Detect ALL disk devices
-    all_drives=$(lsblk -ndo NAME,SIZE,TYPE 2>/dev/null | grep disk || echo "")
+    # If PKNAME is empty, try getting the device without partition number
+    if [ -z "$root_device" ]; then
+        root_device=$(echo "$root_partition" | sed 's/[0-9]*$//' | sed 's|/dev/||')
+    fi
+    
+    log "Root partition: $root_partition"
+    log "Root device: $root_device"
+    
+    # Detect ALL disk devices with labels
+    all_drives=$(lsblk -ndo NAME,SIZE,TYPE,LABEL,MODEL 2>/dev/null | grep disk || echo "")
     
     if [ -z "$all_drives" ]; then
         log "ERROR: Failed to detect any drives"
@@ -244,51 +252,54 @@ You can skip this step and set up storage manually later.
 
 Check logs: $LOG_FILE"
     else
-        log "All detected drives: $all_drives"
+        log "All detected drives:"
+        log "$all_drives"
         
-        # Filter out root device but show ALL other drives
-        available_drives=""
-        while IFS= read -r drive; do
-            name=$(echo "$drive" | awk '{print $1}')
+        # Build drive selection menu (exclude root device)
+        drive_list=()
+        while IFS= read -r line; do
+            name=$(echo "$line" | awk '{print $1}')
+            size=$(echo "$line" | awk '{print $2}')
+            type=$(echo "$line" | awk '{print $3}')
+            label=$(echo "$line" | awk '{print $4}')
+            model=$(echo "$line" | awk '{$1=$2=$3=$4=""; print $0}' | sed 's/^[ \t]*//')
             
             # Skip the root device
             if [ "$name" = "$root_device" ]; then
-                log "Skipping root device: $name"
+                log "Filtering out OS drive: $name"
                 continue
             fi
             
-            # Add to available drives
-            if [ -z "$available_drives" ]; then
-                available_drives="$drive"
-            else
-                available_drives="$available_drives
-$drive"
+            # Build description with label and model
+            description="$size"
+            if [ -n "$label" ] && [ "$label" != "" ]; then
+                description="$description | Label: $label"
             fi
+            if [ -n "$model" ] && [ "$model" != "" ]; then
+                description="$description | $model"
+            fi
+            
+            drive_list+=("/dev/$name" "$description")
+            log "Added to menu: /dev/$name -> $description"
         done <<< "$all_drives"
         
-        if [ -z "$available_drives" ]; then
-            log "No available drives (all filtered)"
+        if [ ${#drive_list[@]} -eq 0 ]; then
+            log "No available drives after filtering"
             show_warning "No additional drives detected.
 
-Detected drives are all in use by the OS.
+All detected drives are in use by the operating system.
+
+The following drive(s) contain your OS and cannot be used:
+• /dev/$root_device (system drive)
 
 Options:
 1. Connect an external USB drive
-2. Install a secondary internal SSD/HDD
+2. Install a secondary internal SSD/HDD  
 3. Skip this step for now
 
 Skipping drive setup..."
         else
-            log "Available drives: $available_drives"
-            
-            # Build drive selection menu
-            drive_list=()
-            while IFS= read -r drive; do
-                name=$(echo "$drive" | awk '{print $1}')
-                size=$(echo "$drive" | awk '{print $2}')
-                type=$(echo "$drive" | awk '{print $3}')
-                drive_list+=("/dev/$name" "$size ($type)")
-            done <<< "$available_drives"
+            log "Available drives: ${#drive_list[@]} options"
             
             if selected_drive=$(show_dialog --menu "Select your storage drive for media:
 
