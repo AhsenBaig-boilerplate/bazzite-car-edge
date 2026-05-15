@@ -28,14 +28,18 @@ tar -xzf /mnt/storage/backups/configs/bazzite-car-edge-backup-YYYYMMDD-HHMMSS.ta
 
 ### System Updates
 ```bash
-# Check for OS updates
+# Check for updates (downloads in background if available)
+car-edge-check-updates
+
+# Apply staged update (reboots system)
+car-edge-apply-update
+
+# View update status
 rpm-ostree status
 
-# Update the system
-rpm-ostree upgrade
-
-# Reboot to apply
-systemctl reboot
+# Manual update commands
+rpm-ostree upgrade          # Download and stage
+systemctl reboot           # Apply staged update
 
 # Rollback to previous version
 rpm-ostree rollback
