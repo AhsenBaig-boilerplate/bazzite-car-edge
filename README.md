@@ -45,7 +45,9 @@ Bazzite Car Edge is a **minimal, bootable OS image** designed for:
 
 ### 📦 Fast Deployment
 - **Small image size** - minimal system packages
-- **Post-boot installer** - `car-edge-install-apps` for applications
+- **GUI setup wizard** - `car-edge-setup-wizard` (NEW!)
+- **Zero terminal commands** - fully automated first boot
+- **Auto-configure** - Kodi, permissions, storage
 - **Backup/Restore** - `car-edge-backup` for configurations
 - **External storage** - keeps OS updates fast, media on separate drive
 
@@ -68,24 +70,37 @@ systemctl reboot
 
 📖 **Full Instructions:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
 
-### 2️⃣ First Boot Setup
+### 2️⃣ Automated Setup (NEW!)
+
+**First Boot Wizard** - Zero Terminal Commands Required!
 
 ```bash
-# Switch to Desktop Mode (Ctrl+Alt+F3)
-
-# Install all applications (~15-20 minutes)
-car-edge-install-apps
-
-# Configure external storage
-sudo nano /etc/fstab
-# Add: UUID=your-uuid /mnt/storage ext4 defaults,nofail 0 2
-sudo mount -a
-
-# Create first backup
-car-edge-backup
+# From Desktop Mode (Ctrl+Alt+F3)
+car-edge-setup-wizard
 ```
 
-📖 **Full Guide:** [docs/FIRST-BOOT.md](docs/FIRST-BOOT.md)
+**The wizard handles everything:**
+- ✅ External drive detection & auto-format
+- ✅ Directory structure creation
+- ✅ Application installation with progress bar
+- ✅ Kodi media source configuration
+- ✅ Permission grants to all apps
+- ✅ Syncthing setup (optional)
+- ✅ First backup
+
+**Time:** 5-10 minutes, fully automated!
+
+📖 **Full Guide:** [docs/AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)
+
+### Manual Setup (Optional)
+For power users who want control:
+```bash
+car-edge-install-apps     # Install apps only
+car-edge-backup           # Create backup
+# Edit /etc/fstab manually  # Full control
+```
+
+📖 **Manual Steps:** [docs/FIRST-BOOT.md](docs/FIRST-BOOT.md)
 
 ---
 
@@ -93,8 +108,9 @@ car-edge-backup
 
 | Document | Description |
 |----------|-------------|
+| **[AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)** | **NEW!** GUI wizard for zero-config setup |
 | **[INSTALLATION.md](docs/INSTALLATION.md)** | Installation methods (rebase, ISO, USB flashing) |
-| **[FIRST-BOOT.md](docs/FIRST-BOOT.md)** | Initial setup guide (apps, storage, Kodi, Syncthing) |
+| **[FIRST-BOOT.md](docs/FIRST-BOOT.md)** | Manual setup guide (optional) |
 | **[CONFIGURATION.md](docs/CONFIGURATION.md)** | Advanced configuration (TLP, networking, RetroArch) |
 | **[BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md)** | Backup strategy and disaster recovery |
 | **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
@@ -125,7 +141,12 @@ car-edge-backup
 ---
 
 ## 🛠️ Custom Commands
+Setup Wizard (NEW!)
+```bash
+car-edge-setup-wizard    # GUI wizard - zero config needed!
+```
 
+### 
 ### Application Management
 ```bash
 car-edge-install-apps    # Install all Flatpak applications

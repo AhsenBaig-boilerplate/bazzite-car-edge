@@ -37,7 +37,11 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     cp /ctx/files/install-apps.sh /usr/bin/car-edge-install-apps && \
     chmod +x /usr/bin/car-edge-install-apps && \
     cp /ctx/files/backup-configs.sh /usr/bin/car-edge-backup && \
-    chmod +x /usr/bin/car-edge-backup
+    chmod +x /usr/bin/car-edge-backup && \
+    cp /ctx/files/car-edge-setup-wizard.sh /usr/bin/car-edge-setup-wizard && \
+    chmod +x /usr/bin/car-edge-setup-wizard && \
+    cp /ctx/files/car-edge-setup-wizard.sh /usr/bin/car-edge-setup-wizard && \
+    chmod +x /usr/bin/car-edge-setup-wizard
     
 ### LINTING
 ## Verify final image and contents are correct.
