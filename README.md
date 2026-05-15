@@ -55,74 +55,99 @@ Bazzite Car Edge is a **minimal, bootable OS image** designed for:
 
 ## 🚀 Quick Start
 
-### 1️⃣ Installation
+### 🎯 **[📖 Complete Quick Start Guide](docs/QUICK-START.md)**
 
-**Option A: Rebase (Fastest!)**
+**New User?** Start here! Our **1-page Quick Start Guide** walks you through:
+- ⚡ Installation (10 minutes)
+- 🎮 Automated first boot setup (15 minutes)
+- 🎯 Essential shortcuts and commands
+- 🔧 Common troubleshooting
+
+**👉 [Read the Quick Start Guide](docs/QUICK-START.md) for a complete walkthrough!**
+
+---
+
+### Installation (3 Steps)
+
+**1. Download ISO**
+```
+https://github.com/AhsenBaig-boilerplate/bazzite-car-edge/releases
+```
+
+**2. Flash to USB**
+- Use [Balena Etcher](https://www.balena.io/etcher/) or Rufus
+
+**3. Boot & Install**
+- Insert USB, reboot, select USB drive
+- Follow installer prompts
+- Reboot when complete
+
+**Already running Bazzite?** 
 ```bash
+# Rebase to Car Edge (fastest upgrade path)
 rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:latest
 systemctl reboot
-
-# After reboot, from Desktop Mode:
-car-edge-upgrade           # Enable Car Edge features (one-time)
-car-edge-setup-wizard      # Run setup wizard
+car-edge-upgrade  # Enable Car Edge features (one-time)
 ```
 
-**Option B: Fresh Install**
-1. Download ISO from [GitHub Actions](https://github.com/AhsenBaig-boilerplate/bazzite-car-edge/actions)
-2. Flash to USB with Rufus/Ventoy
-3. Install as normal Bazzite system
+📖 **Detailed Instructions:** [INSTALLATION.md](docs/INSTALLATION.md) | [UPGRADE.md](docs/UPGRADE.md)
 
-📖 **Full Instructions:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
+---
 
-### 2️⃣ First Boot - Automated!
+### First Boot - Zero Configuration Required! ✨
 
-**The setup wizard launches automatically on first boot!**
+**The setup wizard launches automatically!**
 
-Just switch to Desktop Mode (Ctrl+Alt+F3) and follow the on-screen wizard.
+- 🎮 Launches in Gaming Mode (Steam Deck UI)
+- 🪄 GUI wizard guides you through setup
+- 📦 Installs 10 applications automatically
+- 💾 Configures external storage
+- ⚡ Ready in 15 minutes - no terminal needed!
 
-**The wizard handles everything:**
-- ✅ External drive detection & auto-format
-- ✅ Directory structure creation
-- ✅ Application installation with progress bar
-- ✅ Kodi media source configuration
-- ✅ Permission grants to all apps
-- ✅ Syncthing setup (optional)
-- ✅ First backup
+**What gets installed:**
+- 🎬 Kodi, 🌐 Firefox, 🎮 Heroic, 🎮 Prism Launcher
+- 🔄 Syncthing, 📚 Kiwix, 🎥 VLC, ⚙️ ProtonUp-Qt
+- 📺 Jellyfin, 💻 VS Code
 
-**Time:** 5-10 minutes, fully automated!
-
-**Manual run (if needed):**
+**Manual launch (if needed):**
 ```bash
-car-edge-setup-wizard         # Run wizard manually
-car-edge-setup-wizard --force # Re-run wizard
+car-edge-setup-wizard         # Run wizard
+car-edge-install-apps         # Install apps only
 ```
 
-📖 **Full Guide:** [docs/AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)
-
-### Manual Setup (Optional)
-For power users who want control:
-```bash
-car-edge-install-apps     # Install apps only
-car-edge-backup           # Create backup
-# Edit /etc/fstab manually  # Full control
-```
-
-📖 **Manual Steps:** [docs/FIRST-BOOT.md](docs/FIRST-BOOT.md)
+📖 **Setup Guides:** [AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md) | [FIRST-BOOT.md](docs/FIRST-BOOT.md)
 
 ---
 
 ## 📚 Documentation
 
+### 🌟 Start Here
 | Document | Description |
 |----------|-------------|
-| **[ROADMAP.md](ROADMAP.md)** | **Production roadmap and feature timeline** |
-| **[AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)** | GUI wizard for zero-config setup |
+| **[🚀 QUICK-START.md](docs/QUICK-START.md)** | **⭐ 1-page guide: Install → Setup → Use (30 minutes!)** |
+| **[ROADMAP.md](ROADMAP.md)** | Production roadmap and feature timeline |
+
+### Setup & Installation
+| Document | Description |
+|----------|-------------|
 | **[INSTALLATION.md](docs/INSTALLATION.md)** | Installation methods (rebase, ISO, USB flashing) |
-| **[FIRST-BOOT.md](docs/FIRST-BOOT.md)** | Manual setup guide (optional) |
+| **[AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)** | GUI wizard walkthrough (zero terminal commands) |
+| **[FIRST-BOOT.md](docs/FIRST-BOOT.md)** | Manual setup guide (optional, for power users) |
+| **[UPGRADE.md](docs/UPGRADE.md)** | Upgrade from standard Bazzite to Car Edge |
+
+### Configuration & Maintenance
+| Document | Description |
+|----------|-------------|
 | **[CONFIGURATION.md](docs/CONFIGURATION.md)** | Advanced configuration (TLP, networking, RetroArch) |
 | **[BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md)** | Backup strategy and disaster recovery |
 | **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
+| **[ERROR-HANDLING.md](docs/ERROR-HANDLING.md)** | Setup wizard error scenarios and recovery |
 | **[QUICK-REFERENCE.md](docs/QUICK-REFERENCE.md)** | Command cheat sheet |
+
+### Testing & Development
+| Document | Description |
+|----------|-------------|
+| **[TESTING.md](TESTING.md)** | Comprehensive test suite and procedures |
 
 ---
 
