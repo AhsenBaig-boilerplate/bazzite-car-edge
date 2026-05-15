@@ -75,6 +75,62 @@ if echo "$UPDATE_CHECK" | grep -q "Available update"; then
         fi
     fi
     
+    # Show GUI prompt with options if DISPLAY available
+    if [ -n "${DISPLAY:-}" ] && command -v kdialog &>/dev/null; then
+        log "Showing update options dialog"
+        
+        # Show menu with options
+        UPDATE_CHOICE=$(kdialog --title "Bazzite Car Edge - Update Available" \
+                              --menu "A system update is available!
+
+Current version: $CURRENT_COMMIT
+Available version: $NEW_VERSION
+
+What would you like to do?" \
+                              "download-latest" "Download Latest (Recommended)" \
+                              "choose-version" "Choose Specific Version" \
+                              "skip" "Skip for Now" 2>/dev/null || echo "skip")
+        
+        log "User choice: $UPDATE_CHOICE"
+        
+        case "$UPDATE_CHOICE" in
+            "download-latest")
+                log "User chose to download latest"
+                ;;
+            "choose-version")
+                log "User chose version switcher"
+                
+                # Check if car-edge-switch-version exists
+                if command -v car-edge-switch-version &>/dev/null; then
+                    # Launch version switcher
+                    car-edge-switch-version &
+                    exit 0
+                else
+                    kdialog --title "Command Not Available" \
+                           --error "car-edge-switch-version is not available.
+
+This feature requires a newer build.
+
+Falling back to automatic download..." 2>/dev/null || true
+                    # Fall through to download
+                fi
+                ;;
+            "skip")
+                log "User chose to skip update"
+                kdialog --title "Update Skipped" \
+                       --msgbox "Update skipped.
+
+The update will be checked again:
+• Tomorrow at 11:00 AM
+• 30 minutes after next boot
+
+To check manually: car-edge-check-updates
+To choose version: car-edge-switch-version" 2>/dev/null || true
+                exit 0
+                ;;
+        esac
+    fi
+    
     log "Downloading update $NEW_VERSION in background..."
     
     # Mark download in progress
