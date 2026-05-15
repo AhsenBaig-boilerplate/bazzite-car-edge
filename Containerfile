@@ -34,6 +34,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build.sh && \
+    mkdir -p /usr/local/bin && \
     cp /ctx/files/install-apps.sh /usr/local/bin/car-edge-install-apps && \
     chmod +x /usr/local/bin/car-edge-install-apps
     
