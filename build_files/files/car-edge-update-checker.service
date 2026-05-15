@@ -1,0 +1,13 @@
+[Unit]
+Description=Bazzite Car Edge Update Checker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/car-edge-check-updates
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

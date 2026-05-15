@@ -53,6 +53,13 @@ if [ -d "/var/home/deck" ]; then
     mkdir -p /var/home/deck/.config/autostart
     cp /etc/skel/.config/autostart/car-edge-setup-wizard.desktop /var/home/deck/.config/autostart/
     chown -R 1000:1000 /var/home/deck/.config/autostart
+    
+    # Enable update checker timer for deck user
+    mkdir -p /var/home/deck/.config/systemd/user/default.target.wants
+    ln -sf /etc/systemd/user/car-edge-update-checker.timer \
+           /var/home/deck/.config/systemd/user/default.target.wants/car-edge-update-checker.timer
+    chown -R 1000:1000 /var/home/deck/.config/systemd
 fi
 
 echo "✅ Setup wizard configured for auto-run on first boot"
+echo "✅ Update checker timer enabled"

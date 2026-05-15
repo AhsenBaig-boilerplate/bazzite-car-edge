@@ -114,7 +114,13 @@
 - [ ] **Welcome notification** - First boot guidance
 - [ ] **Quick access tile** - "System Setup" in Steam UI
 - [ ] **Kodi launch tile** - Quick access from Gaming Mode
-- [ ] **Update notifications** - "New version available" badge
+- [x] **Update notifications** - GUI notification when updates available (COMPLETED!)
+  - Automatic daily checks at 11 AM
+  - Check 30 minutes after boot
+  - kdialog notification with update/postpone options
+  - One-click update + reboot
+  - Systemd timer: car-edge-update-checker.timer
+  - Command: car-edge-check-updates
 
 ### Advanced Wizard Features
 - [x] **Network drive setup** - SMB/NFS configuration (COMPLETED!)

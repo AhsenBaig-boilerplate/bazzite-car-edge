@@ -1,0 +1,15 @@
+[Unit]
+Description=Check for Bazzite Car Edge updates
+Requires=car-edge-update-checker.service
+
+[Timer]
+# Check for updates daily at 11:00 AM
+OnCalendar=daily
+OnCalendar=*-*-* 11:00:00
+# Also check 30 minutes after boot
+OnBootSec=30min
+# If system was off, run check when it comes online
+Persistent=true
+
+[Install]
+WantedBy=timers.target
