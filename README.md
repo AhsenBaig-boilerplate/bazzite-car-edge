@@ -144,6 +144,7 @@ car-edge-install-apps         # Install apps only
 | Document | Description |
 |----------|-------------|
 | **[CONFIGURATION.md](docs/CONFIGURATION.md)** | Advanced configuration (TLP, networking, RetroArch) |
+| **[UPDATES.md](docs/UPDATES.md)** | System updates - automatic background downloads & notifications |
 | **[NETWORK-STORAGE.md](docs/NETWORK-STORAGE.md)** | Network storage setup (SMB/NFS home server access) |
 | **[BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md)** | Backup strategy and disaster recovery |
 | **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
