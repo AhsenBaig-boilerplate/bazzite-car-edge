@@ -9,6 +9,8 @@ A custom [Bazzite](https://bazzite.gg) image built specifically for in-car enter
 ![License](https://img.shields.io/github/license/AhsenBaig-boilerplate/bazzite-car-edge)
 ![Build Status](https://github.com/AhsenBaig-boilerplate/bazzite-car-edge/actions/workflows/build.yml/badge.svg)
 
+**🎯 Current Status:** Feature Complete - Testing Phase | [See STATUS.md](STATUS.md) for details
+
 ---
 
 ## 🚗 What is This?
@@ -127,6 +129,7 @@ car-edge-install-apps         # Install apps only
 | Document | Description |
 |----------|-------------|
 | **[🚀 QUICK-START.md](docs/QUICK-START.md)** | **⭐ 1-page guide: Install → Setup → Use (30 minutes!)** |
+| **[STATUS.md](STATUS.md)** | Current project status and progress |
 | **[ROADMAP.md](ROADMAP.md)** | Production roadmap and feature timeline |
 
 ### Setup & Installation
@@ -151,6 +154,8 @@ car-edge-install-apps         # Install apps only
 | Document | Description |
 |----------|-------------|
 | **[TESTING.md](TESTING.md)** | Comprehensive test suite and procedures |
+| **[TEST-EXECUTION-PLAN.md](TEST-EXECUTION-PLAN.md)** | Step-by-step testing guide (7 phases) |
+| **[VM-TESTING.md](docs/VM-TESTING.md)** | Virtual machine testing guide |
 
 ---
 

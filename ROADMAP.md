@@ -41,49 +41,82 @@
 
 ---
 
-## 🚧 Phase 2: Testing & Polish (IN PROGRESS)
+## ✅ Phase 2: Error Handling & Testing Infrastructure (COMPLETE)
 
-### Critical Testing
-- [ ] **Test build completion** - Verify GitHub Actions success
+### Error Handling (COMPLETED!)
+- [x] **Enhanced wizard v2** - Comprehensive error handling
+- [x] **Network failure handling** - Retry mechanism (3 attempts)
+- [x] **No external drive** - Wizard gracefully skips
+- [x] **Drive format failure** - Clear error messages
+- [x] **Flatpak install timeout** - Retry with user prompt
+- [x] **No internet detection** - Pre-flight check
+- [x] **Disk space verification** - Pre-flight check
+- [x] **Logging system** - `~/.cache/car-edge-setup.log`
+- [x] **Skip/continue options** - User control at each step
+- [x] **Error documentation** - ERROR-HANDLING.md guide
+
+### Testing Infrastructure (COMPLETED!)
+- [x] **Automated test script** - `test-system.sh` (30+ checks)
+- [x] **Testing checklist** - TESTING.md (300+ test cases)
+- [x] **4-level test plan** - Smoke, Error, Integration, UX
+- [x] **Test templates** - Results, bug reports, sign-off
+- [x] **Build verification** - Automated checks for all components
+
+### Documentation Suite (COMPLETED!)
+- [x] **Quick Start Guide** - QUICK-START.md (1-page guide)
+- [x] **Network Storage Guide** - NETWORK-STORAGE.md (SMB/NFS)
+- [x] **Error Handling Guide** - ERROR-HANDLING.md
+- [x] **Upgrade Guide** - UPGRADE.md (rebase path)
+- [x] **Testing Guide** - TESTING.md (comprehensive)
+- [x] **Complete documentation** - 10 guides covering all aspects
+
+### Build Fixes (COMPLETED!)
+- [x] **Fixed tmpfs issue** - Service file created inline
+- [x] **Cleaned up Containerfile** - No duplicate installations
+- [x] **Network packages added** - cifs-utils, nfs-utils
+- [x] **All scripts installed** - 5 car-edge-* commands
+
+---
+
+## 🧪 Phase 3: Validation & Testing (CURRENT)
+
+### Critical Testing (READY TO START)
+- [ ] **Monitor build completion** - Verify GitHub Actions success
+- [ ] **Download ISO artifact** - Get bootable image
+- [ ] **Run automated tests** - Execute test-system.sh
+- [ ] **VM environment testing** - Safe testing before hardware
 - [ ] **Deploy to real hardware** - Test on Beelink Mini S13
 - [ ] **Wizard full walkthrough** - Complete setup with real drive
+- [ ] **Network storage testing** - SMB/NFS validation
 - [ ] **Gaming Mode verification** - Ensure controller works
 - [ ] **Kodi media playback** - Test with actual media files
 - [ ] **RetroArch with ROMs** - Verify emulation works
 
-### Error Handling
-- [ ] **No external drive** - Wizard should gracefully skip
-- [ ] **Network failure during install** - Retry mechanism
-- [ ] **Drive format failure** - Clear error message
-- [ ] **Permission denied errors** - Sudo prompt fallback
-- [ ] **Flatpak install timeout** - Resume capability
-- [ ] **Kodi config corruption** - Backup/restore
+### User Experience Validation
+- [ ] **First-time user test** - Non-technical person walkthrough
+- [ ] **Performance testing** - Intel N150 optimization validation
+- [ ] **Power management** - Battery vs AC behavior
+- [ ] **WiFi auto-connect** - Network storage auto-mount
+- [ ] **Controller pairing** - Bluetooth detection
+- [ ] **App launch testing** - All 10 apps work correctly
 
-### User Experience Polish
-- [ ] **Progress indicators** - Show time remaining
-- [ ] **Cancellation handling** - Safe to cancel at any step
-- [ ] **Skip functionality** - Skip optional steps easily
-- [ ] **Help buttons** - Context-sensitive help in wizard
-- [ ] **Error recovery** - Resume from last successful step
-- [ ] **Confirmation screens** - Review choices before applying
-
-### Documentation
-- [ ] **Video demo** - Record full wizard walkthrough
+### Documentation & Media
+- [ ] **Video demo** - Record full wizard walkthrough (2-5 min)
 - [ ] **Screenshots** - Add to all docs
-- [ ] **Quick start card** - 1-page PDF guide
-- [ ] **Troubleshooting expansion** - More common issues
+- [ ] **Quick reference card** - Printable 1-page PDF
+- [ ] **Troubleshooting expansion** - Real-world issues
 
 ---
 
-## 🎯 Phase 3: Non-Technical User Ready
+## 🎯 Phase 4: Production Features (FUTURE)
 
 ### Gaming Mode Enhancements
-- [ ] **Welcome notification** - "New to Bazzite Car Edge? Press Ctrl+Alt+F3"
+- [ ] **Welcome notification** - First boot guidance
 - [ ] **Quick access tile** - "System Setup" in Steam UI
 - [ ] **Kodi launch tile** - Quick access from Gaming Mode
 - [ ] **Update notifications** - "New version available" badge
 
-### Wizard Enhancements
+### Advanced Wizard Features
 - [x] **Network drive setup** - SMB/NFS configuration (COMPLETED!)
   - GUI configuration in wizard
   - SMB/CIFS support (Windows, NAS)
@@ -91,6 +124,7 @@
   - Credential storage (encrypted)
   - Auto-mount via systemd
   - Test connection wizard
+  - Command: `car-edge-network-mounts`
   - Command: `car-edge-network-mounts`
   - Documentation: NETWORK-STORAGE.md
 
