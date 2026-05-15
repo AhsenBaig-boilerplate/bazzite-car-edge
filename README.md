@@ -111,7 +111,8 @@ car-edge-backup           # Create backup
 
 | Document | Description |
 |----------|-------------|
-| **[AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)** | **NEW!** GUI wizard for zero-config setup |
+| **[ROADMAP.md](ROADMAP.md)** | **Production roadmap and feature timeline** |
+| **[AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)** | GUI wizard for zero-config setup |
 | **[INSTALLATION.md](docs/INSTALLATION.md)** | Installation methods (rebase, ISO, USB flashing) |
 | **[FIRST-BOOT.md](docs/FIRST-BOOT.md)** | Manual setup guide (optional) |
 | **[CONFIGURATION.md](docs/CONFIGURATION.md)** | Advanced configuration (TLP, networking, RetroArch) |
@@ -265,15 +266,31 @@ Built with:
 
 ## 📊 Project Status
 
-🚧 **Active Development** - First stable release target: Q2 2026
+**Current Version:** v0.5-alpha (Active Development)
 
-- [x] Base image configuration
-- [x] Application installer
-- [x] Backup system
-- [x] Documentation
-- [ ] First stable release
-- [ ] ISO generation testing
-- [ ] Real hardware deployment
+**Phase 1: Foundation** ✅ **COMPLETE**
+- [x] Core build system and minimal image
+- [x] GUI setup wizard with auto-run
+- [x] Application installer and backup system
+- [x] Complete documentation (8 files)
+
+**Phase 2: Testing & Polish** 🚧 **IN PROGRESS**
+- [ ] Real hardware testing (Beelink Mini S13)
+- [ ] Video demo and screenshots
+- [ ] Error handling and edge cases
+- [ ] User acceptance testing
+
+**Phase 3: Production Ready** 📋 **PLANNED**
+- [ ] Network drive (SMB/NFS) wizard
+- [ ] RetroArch core auto-installer
+- [ ] Controller pairing wizard
+- [ ] Settings management GUI
+- [ ] Gaming Mode enhancements
+
+📖 **Full Roadmap:** [ROADMAP.md](ROADMAP.md)
+
+**Target:** First stable release (v1.0) in 3-6 months
+**Focus:** Non-technical users, family-friendly, zero-config
 
 ---
 
