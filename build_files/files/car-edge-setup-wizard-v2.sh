@@ -210,53 +210,107 @@ NETWORK_AVAILABLE=$(check_network && echo "yes" || echo "no")
 log "Network available: $NETWORK_AVAILABLE"
 
 #
-# Step 1: External Drive Setup
+# Step 1: Storage Drive Setup (External or Internal Secondary)
 #
-log "=== Step 1: External Drive Setup ==="
-if show_dialog --yesno "Do you have an external drive for media storage (movies, games, ROMs)?
+log "=== Step 1: Storage Drive Setup ==="
+if show_dialog --yesno "Do you have a drive for media storage (movies, games, ROMs)?
 
-Recommended: 500GB+ SSD or larger"; then
+This can be:
+• External USB drive (SSD/HDD)
+• Internal secondary SSD
+• Any drive NOT used for the OS
+
+Recommended: 500GB+ or larger"; then
     
-    log "User wants to set up external drive"
+    log "User wants to set up storage drive"
     
-    # Detect available drives with error handling
-    if ! drives=$(lsblk -ndo NAME,SIZE,TYPE 2>/dev/null | grep disk | grep -v "$(lsblk -ndo NAME,MOUNTPOINT 2>/dev/null | grep '/$' | awk '{print $1}')"); then
-        log "ERROR: Failed to detect drives"
+    # Get root device (what the OS is on)
+    root_device=$(lsblk -no PKNAME "$(df / | tail -1 | awk '{print $1}')" 2>/dev/null || echo "")
+    log "Root device detected: $root_device"
+    
+    # Detect ALL disk devices
+    all_drives=$(lsblk -ndo NAME,SIZE,TYPE 2>/dev/null | grep disk || echo "")
+    
+    if [ -z "$all_drives" ]; then
+        log "ERROR: Failed to detect any drives"
         show_error "Failed to detect storage drives.
 
-This might be a permission issue or no drives are connected.
+Possible causes:
+• Permission issue
+• lsblk command failed
+• No drives detected by kernel
 
-You can skip this step and set up storage manually later."
-    elif [ -z "$drives" ]; then
-        log "No external drives detected"
-        show_warning "No external drives detected.
+You can skip this step and set up storage manually later.
 
-Please:
-1. Connect your external drive
-2. Wait a few seconds
-3. Run this wizard again
-
-Skipping drive setup..."
+Check logs: $LOG_FILE"
     else
-        log "Detected drives: $drives"
+        log "All detected drives: $all_drives"
         
-        # Build drive selection menu
-        drive_list=()
+        # Filter out root device but show ALL other drives
+        available_drives=""
         while IFS= read -r drive; do
             name=$(echo "$drive" | awk '{print $1}')
-            size=$(echo "$drive" | awk '{print $2}')
-            drive_list+=("/dev/$name" "$size")
-        done <<< "$drives"
-        
-        if selected_drive=$(show_dialog --menu "Select your external drive for media storage:" "${drive_list[@]}"); then
-            log "Selected drive: $selected_drive"
             
-            # Confirm formatting with extra warning
-            if show_dialog --warningyesno "⚠️ WARNING: FORMAT DRIVE ⚠️
+            # Skip the root device
+            if [ "$name" = "$root_device" ]; then
+                log "Skipping root device: $name"
+                continue
+            fi
+            
+            # Add to available drives
+            if [ -z "$available_drives" ]; then
+                available_drives="$drive"
+            else
+                available_drives="$available_drives
+$drive"
+            fi
+        done <<< "$all_drives"
+        
+        if [ -z "$available_drives" ]; then
+            log "No available drives (all filtered)"
+            show_warning "No additional drives detected.
+
+Detected drives are all in use by the OS.
+
+Options:
+1. Connect an external USB drive
+2. Install a secondary internal SSD/HDD
+3. Skip this step for now
+
+Skipping drive setup..."
+        else
+            log "Available drives: $available_drives"
+            
+            # Build drive selection menu
+            drive_list=()
+            while IFS= read -r drive; do
+                name=$(echo "$drive" | awk '{print $1}')
+                size=$(echo "$drive" | awk '{print $2}')
+                type=$(echo "$drive" | awk '{print $3}')
+                drive_list+=("/dev/$name" "$size ($type)")
+            done <<< "$available_drives"
+            
+            if selected_drive=$(show_dialog --menu "Select your storage drive for media:
+
+⚠️  WARNING: The selected drive will be formatted and all data erased!
+
+Available drives:" "${drive_list[@]}"); then
+                log "Selected drive: $selected_drive"
+                
+                # Show drive info
+                drive_info=$(lsblk -o NAME,SIZE,TYPE,MODEL "$selected_drive" 2>/dev/null || echo "Drive: $selected_drive")
+                log "Selected drive info: $drive_info"
+                
+                # Confirm formatting with extra warning
+                if show_dialog --warningyesno "⚠️ WARNING: FORMAT DRIVE ⚠️
 
 This will FORMAT $selected_drive and ERASE ALL DATA!
 
-Selected drive: $selected_drive
+Drive info:
+$drive_info
+
+Current partitions (will be deleted):
+$(lsblk "$selected_drive" 2>/dev/null || echo "Unable to read")
 
 ARE YOU ABSOLUTELY SURE?
 
@@ -268,24 +322,27 @@ This action cannot be undone!"; then
                 if retry_command "
                     (
                         sudo parted -s $selected_drive mklabel gpt &&
-                        sudo parted -s $selected_drive mkpart primary ext4 0% 100% &&
-                        sleep 2 &&
-                        sudo mkfs.ext4 -F ${selected_drive}1 &&
-                        uuid=\$(sudo blkid -s UUID -o value ${selected_drive}1) &&
-                        echo \"UUID=\$uuid /mnt/storage ext4 defaults,nofail 0 2\" | sudo tee -a /etc/fstab &&
-                        sudo mkdir -p /mnt/storage &&
-                        sudo mount -a &&
-                        sudo mkdir -p /mnt/storage/{media/{movies,tv,music},games/{roms/{nes,snes,genesis,ps1,ps2},saves,steam},backups/configs} &&
-                        sudo chown -R $USER:$USER /mnt/storage
-                    ) 2>&1 | tee -a $LOG_FILE
-                " "External drive setup"; then
-                    
-                    show_info "External drive configured successfully!
+                        sudo paStorage drive configured successfully!
 
 Mount point: /mnt/storage
 Media: /mnt/storage/media/
 Games: /mnt/storage/games/
-Backups: /mnt/storage/backups/"
+Backups: /mnt/storage/backups/
+
+Your drive will auto-mount on every boot."
+                else
+                    log "Drive setup failed or skipped"
+                fi
+            else
+                log "User cancelled drive format"
+            fi
+        else
+            log "User cancelled drive selection"
+        fi
+        fi
+    fi
+else
+    log "User skipped storage"
                 else
                     log "Drive setup failed or skipped"
                 fi
