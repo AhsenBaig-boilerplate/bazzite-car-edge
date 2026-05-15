@@ -34,18 +34,12 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build.sh && \
-    cp /ctx/files/install-apps.sh /usr/bin/car-edge-install-apps && \
-    chmod +x /usr/bin/car-edge-install-apps && \
-    cp /ctx/files/backup-configs.sh /usr/bin/car-edge-backup && \
-    chmod +x /usr/bin/car-edge-backup && \
-    cp /ctx/files/car-edge-setup-wizard.sh /usr/bin/car-edge-setup-wizard && \
-    chmod +x /usr/bin/car-edge-setup-wizard && \
-    cp /ctx/files/car-edge-upgrade.sh /usr/bin/car-edge-upgrade && \
-    chmod +x /usr/bin/car-edge-upgrade && \
-    cp /ctx/files/car-edge-setup-wizard.service /tmp/ && \
-    bash /ctx/files/enable-setup-wizard.sh && \
-    cp /ctx/files/car-edge-setup-wizard.sh /usr/bin/car-edge-setup-wizard && \
-    chmod +x /usr/bin/car-edge-setup-wizard
+    install -D -m 755 /ctx/files/install-apps.sh /usr/bin/car-edge-install-apps && \
+    install -D -m 755 /ctx/files/backup-configs.sh /usr/bin/car-edge-backup && \
+    install -D -m 755 /ctx/files/car-edge-setup-wizard-v2.sh /usr/bin/car-edge-setup-wizard && \
+    install -D -m 755 /ctx/files/car-edge-upgrade.sh /usr/bin/car-edge-upgrade && \
+    install -D -m 755 /ctx/files/car-edge-network-mounts.sh /usr/bin/car-edge-network-mounts && \
+    bash /ctx/files/enable-setup-wizard.sh
     
 ### LINTING
 ## Verify final image and contents are correct.

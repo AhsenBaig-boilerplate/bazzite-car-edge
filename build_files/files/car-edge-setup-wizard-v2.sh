@@ -304,9 +304,132 @@ You can configure it later using the manual setup guide."
 fi
 
 #
-# Step 2: Install Applications
+# Step 2: Network Storage (Optional)
 #
-log "=== Step 2: Install Applications ==="
+log "=== Step 2: Network Storage Setup ==="
+if [ "$NETWORK_AVAILABLE" = "yes" ]; then
+    if show_dialog --yesno "Do you want to set up network storage?
+
+This allows accessing media from your home server (NAS):
+• SMB/CIFS (Windows shares, most NAS devices)
+• NFS (Linux/Unix shares)
+
+Benefits:
+• Stream media without copying to external drive
+• Access large ROM/game libraries
+• Auto-connects when on home WiFi
+
+You can skip this and set up later with:
+  car-edge-network-mounts configure"; then
+        
+        log "User wants to configure network storage"
+        
+        # Network storage configuration
+        SHARE_TYPE=""
+        if show_dialog --menu "Select network storage type:" \
+            "SMB/CIFS" "Windows shares, most NAS devices (Synology, QNAP, etc.)" \
+            "NFS" "Linux/Unix shares"; then
+            SHARE_TYPE=$(show_dialog --menu "Select network storage type:" \
+                "SMB/CIFS" "Windows shares, most NAS devices" \
+                "NFS" "Linux/Unix shares" 2>&1)
+        fi
+        
+        if [ -n "$SHARE_TYPE" ]; then
+            SERVER=""
+            SHARE_PATH=""
+            USERNAME=""
+            PASSWORD=""
+            
+            # Get server details
+            SERVER=$(show_dialog --inputbox "Enter server IP or hostname:
+
+Example: 192.168.1.100 or nas.local" "" 2>&1 || echo "")
+            
+            if [ -n "$SERVER" ]; then
+                SHARE_PATH=$(show_dialog --inputbox "Enter share path:
+
+Examples:
+• SMB: media or shared/media
+• NFS: /export/media or /volume1/media" "" 2>&1 || echo "")
+                
+                if [ -n "$SHARE_PATH" ]; then
+                    # Get credentials for SMB
+                    if [ "$SHARE_TYPE" = "SMB/CIFS" ]; then
+                        USERNAME=$(show_dialog --inputbox "Enter username:
+
+(Leave empty for guest access)" "" 2>&1 || echo "")
+                        
+                        if [ -n "$USERNAME" ]; then
+                            PASSWORD=$(show_dialog --password "Enter password for $USERNAME:" 2>&1 || echo "")
+                        fi
+                    fi
+                    
+                    # Save configuration
+                    CONFIG_DIR="$HOME/.config/car-edge"
+                    mkdir -p "$CONFIG_DIR"
+                    
+                    # Remove leading slash for SMB, ensure for NFS
+                    if [ "$SHARE_TYPE" = "SMB/CIFS" ]; then
+                        SHARE_PATH="${SHARE_PATH#/}"
+                    else
+                        SHARE_PATH="/${SHARE_PATH#/}"
+                    fi
+                    
+                    # Create config file
+                    cat > "$CONFIG_DIR/network-mounts.conf" << EOF
+# Bazzite Car Edge Network Mount Configuration
+SHARE_TYPE="$(echo "$SHARE_TYPE" | tr '[:upper:]' '[:lower:]' | cut -d'/' -f1)"
+SERVER="$SERVER"
+SHARE_PATH="$SHARE_PATH"
+USERNAME="$USERNAME"
+PASSWORD="$PASSWORD"
+MOUNT_POINT="/mnt/network-storage"
+EOF
+                    chmod 600 "$CONFIG_DIR/network-mounts.conf"
+                    log "Network storage config saved"
+                    
+                    # Test and mount
+                    if show_dialog --yesno "Configuration saved!
+
+Test the connection and mount now?
+
+Note: Make sure your server is reachable on the network."; then
+                        log "Testing network mount..."
+                        
+                        # Create terminal command to run the mount setup
+                        # Using konsole to show progress
+                        if retry_command "konsole --hold -e bash -c 'car-edge-network-mounts enable; echo; echo Press Enter to continue...; read'" "Network storage mount"; then
+                            show_info "Network storage configured!
+
+Mounted at: /mnt/network-storage
+
+The mount will auto-connect when on your home network."
+                        else
+                            show_warning "Could not mount network storage now.
+
+Configuration is saved. Try mounting later with:
+  car-edge-network-mounts enable
+
+Check if:
+• Server is powered on
+• You're on the correct network
+• Credentials are correct"
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    else
+        log "User skipped network storage"
+    fi
+else
+    log "Network unavailable, skipping network storage setup"
+fi
+
+#
+# Step 3: Install Applications
+#
+log "=== Step 3: Install Applications ==="
 if [ "$NETWORK_AVAILABLE" = "no" ]; then
     show_warning "Skipping application installation (no internet).
 

@@ -21,7 +21,9 @@ rpm-ostree install \
     tmux \
     curl \
     wget \
-    jq
+    jq \
+    cifs-utils \
+    nfs-utils
 
 echo "✅ System utilities installed"
 echo ""
@@ -74,6 +76,7 @@ d /mnt/storage/games/saves    0755 - - - -
 d /mnt/storage/documents      0755 - - - -
 d /mnt/storage/archives       0755 - - - -
 d /mnt/storage/sync           0755 - - - -
+d /mnt/network-storage        0755 - - - -
 EOF
 
 echo "✅ Storage structure configured"

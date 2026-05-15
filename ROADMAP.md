@@ -84,11 +84,15 @@
 - [ ] **Update notifications** - "New version available" badge
 
 ### Wizard Enhancements
-- [ ] **Network drive setup** - SMB/NFS configuration GUI
-  - Browse network for shares
-  - Test connection before saving
-  - Auto-mount on boot
-  - Add to Kodi automatically
+- [x] **Network drive setup** - SMB/NFS configuration (COMPLETED!)
+  - GUI configuration in wizard
+  - SMB/CIFS support (Windows, NAS)
+  - NFS support (Linux servers)
+  - Credential storage (encrypted)
+  - Auto-mount via systemd
+  - Test connection wizard
+  - Command: `car-edge-network-mounts`
+  - Documentation: NETWORK-STORAGE.md
 
 - [ ] **RetroArch core installer** - One-click core setup
   - Detect ROM files

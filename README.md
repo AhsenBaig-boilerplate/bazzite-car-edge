@@ -35,12 +35,14 @@ Bazzite Car Edge is a **minimal, bootable OS image** designed for:
 - **Kodi** - full-featured media player
 - **Jellyfin Media Player** - home server integration
 - **VLC** - universal video player
+- **Network Storage** - SMB/NFS support for home media server (NEW!)
 - Pre-configured for `/mnt/storage` external media drive
 
 ### 🔧 Edge Computing
 - **Immutable OS** (rpm-ostree) - atomic updates, instant rollback
 - **Minimal base image** - applications installed post-boot
 - **Syncthing** - sync with home lab
+- **Network mounts** - auto-connect to home NAS when in WiFi range (NEW!)
 - **Power-optimized** - TLP configured for Intel N150
 
 ### 📦 Fast Deployment
@@ -139,6 +141,7 @@ car-edge-install-apps         # Install apps only
 | Document | Description |
 |----------|-------------|
 | **[CONFIGURATION.md](docs/CONFIGURATION.md)** | Advanced configuration (TLP, networking, RetroArch) |
+| **[NETWORK-STORAGE.md](docs/NETWORK-STORAGE.md)** | Network storage setup (SMB/NFS home server access) |
 | **[BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md)** | Backup strategy and disaster recovery |
 | **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
 | **[ERROR-HANDLING.md](docs/ERROR-HANDLING.md)** | Setup wizard error scenarios and recovery |
