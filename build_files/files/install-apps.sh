@@ -12,6 +12,7 @@ echo "  🦊 Firefox - Web streaming (Netflix, YouTube)"
 echo "  🎮 Minecraft - PrismLauncher for modding"
 echo "  🔄 Syncthing - Auto-sync with home lab"
 echo "  📚 Kiwix - Offline Wikipedia"
+echo "  💻 VS Code - Code editor and file viewer"
 echo ""
 read -p "Continue? [Y/n] " -n 1 -r
 echo
@@ -30,7 +31,8 @@ flatpak install --system --noninteractive --assumeyes flathub \
     org.mozilla.firefox \
     org.prismlauncher.PrismLauncher \
     com.github.zocker_160.SyncThingy \
-    org.kiwix.desktop
+    org.kiwix.desktop \
+    com.visualstudio.code
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -43,6 +45,7 @@ echo "  • Firefox - Desktop Mode"
 echo "  • Minecraft - Gaming Mode Library"
 echo "  • Syncthing - Desktop Mode (configure auto-start)"
 echo "  • Kiwix - Desktop Mode"
+echo "  • VS Code - Desktop Mode"
 echo ""
 echo "💡 Tip: Download Wikipedia dumps for Kiwix from kiwix.org"
 echo "💡 Tip: Configure Syncthing to auto-start on login"
