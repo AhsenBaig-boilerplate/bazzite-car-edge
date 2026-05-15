@@ -322,7 +322,19 @@ This action cannot be undone!"; then
                 if retry_command "
                     (
                         sudo parted -s $selected_drive mklabel gpt &&
-                        sudo paStorage drive configured successfully!
+                        sudo parted -s $selected_drive mkpart primary ext4 0% 100% &&
+                        sleep 2 &&
+                        sudo mkfs.ext4 -F ${selected_drive}1 &&
+                        uuid=\$(sudo blkid -s UUID -o value ${selected_drive}1) &&
+                        echo \"UUID=\$uuid /mnt/storage ext4 defaults,nofail 0 2\" | sudo tee -a /etc/fstab &&
+                        sudo mkdir -p /mnt/storage &&
+                        sudo mount -a &&
+                        sudo mkdir -p /mnt/storage/{media/{movies,tv,music},games/{roms/{nes,snes,genesis,ps1,ps2},saves,steam},backups/configs} &&
+                        sudo chown -R $USER:$USER /mnt/storage
+                    ) 2>&1 | tee -a $LOG_FILE
+                " "Storage drive setup"; then
+                    
+                    show_info "Storage drive configured successfully!
 
 Mount point: /mnt/storage
 Media: /mnt/storage/media/
@@ -342,20 +354,8 @@ Your drive will auto-mount on every boot."
         fi
     fi
 else
-    log "User skipped storage"
-                else
-                    log "Drive setup failed or skipped"
-                fi
-            else
-                log "User cancelled drive format"
-            fi
-        else
-            log "User cancelled drive selection"
-        fi
-    fi
-else
-    log "User skipped external drive setup"
-    show_info "Skipping external drive setup.
+    log "User skipped storage drive setup"
+    show_info "Skipping storage drive setup.
 
 You can configure it later using the manual setup guide."
 fi
