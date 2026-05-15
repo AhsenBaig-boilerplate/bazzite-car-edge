@@ -29,9 +29,22 @@
 
 ## 🚀 How It Works
 
-### Setup Wizard Command
+### Automatic Launch on First Boot
+
+**The wizard runs automatically!**
+
+When you first boot Bazzite Car Edge:
+1. System boots to Gaming Mode
+2. Press `Ctrl+Alt+F3` to switch to Desktop Mode
+3. **Wizard launches automatically** after 5 seconds
+4. Follow the on-screen prompts
+
+### Manual Launch (Optional)
+
+If you skip the wizard or want to run it again:
 ```bash
-car-edge-setup-wizard
+car-edge-setup-wizard         # Run normally
+car-edge-setup-wizard --force # Re-run (won't re-format drives)
 ```
 
 ### What It Does Automatically
@@ -240,8 +253,8 @@ car-edge-backup                # Just backup
 - [x] Kodi auto-configuration
 - [x] Permission grants
 
-### Phase 2 (Planned)
-- [ ] Auto-run on first boot (systemd service)
+### Phase 2 (Current)
+- [x] Auto-run on first boot (systemd + autostart)
 - [ ] Network drive (SMB/NFS) setup
 - [ ] RetroArch core installation
 - [ ] Controller pairing wizard

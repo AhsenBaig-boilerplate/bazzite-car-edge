@@ -1,14 +1,13 @@
 [Unit]
 Description=Bazzite Car Edge - First Boot Setup Wizard
-After=graphical.target
-ConditionPathExists=!/home/%u/.config/car-edge-setup-complete
+After=graphical-session.target
+ConditionPathExists=!%h/.config/car-edge-setup-complete
 
 [Service]
 Type=oneshot
-User=%u
-Environment=DISPLAY=:0
-ExecStart=/usr/bin/car-edge-setup-wizard
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/car-edge-setup-wizard --auto
 RemainAfterExit=yes
 
 [Install]
-WantedBy=graphical.target
+WantedBy=default.target

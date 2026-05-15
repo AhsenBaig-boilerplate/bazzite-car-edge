@@ -4,10 +4,30 @@
 
 set -euo pipefail
 
+# Check if already completed
+if [ -f "$HOME/.config/car-edge-setup-complete" ]; then
+    if [ "${1:-}" != "--force" ]; then
+        kdialog --title "Setup Already Complete" --msgbox "The Bazzite Car Edge setup wizard has already been run.
+
+To re-run the wizard, use:
+  car-edge-setup-wizard --force
+
+Note: Re-running is safe but will not re-format drives."
+        exit 0
+    fi
+fi
+
 # Check if running in KDE (Desktop Mode)
 if [ -z "${DISPLAY:-}" ]; then
     echo "Error: This wizard must be run in Desktop Mode (GUI)"
     echo "Press Ctrl+Alt+F3 to switch to Desktop Mode"
+    echo "Then run: car-edge-setup-wizard"
+    exit 1
+fi
+
+# Check for kdialog
+if ! command -v kdialog &> /dev/null; then
+    echo "Error: kdialog not found. This wizard requires KDE Plasma."
     exit 1
 fi
 
@@ -30,7 +50,25 @@ show_error() {
 }
 
 # Welcome screen
-show_info "Welcome to Bazzite Car Edge Setup Wizard!
+if [ "${1:-}" = "--auto" ]; then
+    # Auto-run on first boot
+    show_info "🎉 Welcome to Bazzite Car Edge!
+
+This is your first boot. Let's set up your car entertainment system!
+
+This wizard will help you:
+• Set up external storage for media
+• Install entertainment applications
+• Configure Kodi media center
+• Set up Syncthing (optional)
+• Create your first backup
+
+Time: 5-10 minutes
+
+Let's get started!"
+else
+    # Manual run
+    show_info "Welcome to Bazzite Car Edge Setup Wizard!
 
 This wizard will help you:
 • Set up external storage for media
@@ -40,6 +78,7 @@ This wizard will help you:
 • Create your first backup
 
 Let's get started!"
+fi
 
 #
 # Step 1: External Drive Setup

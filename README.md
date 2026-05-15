@@ -70,14 +70,11 @@ systemctl reboot
 
 📖 **Full Instructions:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
 
-### 2️⃣ Automated Setup (NEW!)
+### 2️⃣ First Boot - Automated!
 
-**First Boot Wizard** - Zero Terminal Commands Required!
+**The setup wizard launches automatically on first boot!**
 
-```bash
-# From Desktop Mode (Ctrl+Alt+F3)
-car-edge-setup-wizard
-```
+Just switch to Desktop Mode (Ctrl+Alt+F3) and follow the on-screen wizard.
 
 **The wizard handles everything:**
 - ✅ External drive detection & auto-format
@@ -89,6 +86,12 @@ car-edge-setup-wizard
 - ✅ First backup
 
 **Time:** 5-10 minutes, fully automated!
+
+**Manual run (if needed):**
+```bash
+car-edge-setup-wizard         # Run wizard manually
+car-edge-setup-wizard --force # Re-run wizard
+```
 
 📖 **Full Guide:** [docs/AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)
 

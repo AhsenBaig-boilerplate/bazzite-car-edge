@@ -40,6 +40,8 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     chmod +x /usr/bin/car-edge-backup && \
     cp /ctx/files/car-edge-setup-wizard.sh /usr/bin/car-edge-setup-wizard && \
     chmod +x /usr/bin/car-edge-setup-wizard && \
+    cp /ctx/files/car-edge-setup-wizard.service /tmp/ && \
+    bash /ctx/files/enable-setup-wizard.sh && \
     cp /ctx/files/car-edge-setup-wizard.sh /usr/bin/car-edge-setup-wizard && \
     chmod +x /usr/bin/car-edge-setup-wizard
     
