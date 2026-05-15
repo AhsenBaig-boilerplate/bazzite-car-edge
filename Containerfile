@@ -2,8 +2,8 @@
 FROM scratch AS ctx
 COPY build_files /
 
-# Base Image
-FROM ghcr.io/ublue-os/bazzite:stable
+# Base Image - Bazzite Deck (Steam Deck UI for car entertainment)
+FROM ghcr.io/ublue-os/bazzite-deck:stable
 
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
@@ -33,7 +33,9 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
-    /ctx/build.sh
+    /ctx/build.sh && \
+    cp /ctx/files/install-apps.sh /usr/local/bin/car-edge-install-apps && \
+    chmod +x /usr/local/bin/car-edge-install-apps
     
 ### LINTING
 ## Verify final image and contents are correct.

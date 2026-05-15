@@ -1,4 +1,20 @@
+# Cosign private key - NEVER commit this!
 cosign.key
+
+# Build artifacts
 _build_*
-output
 _build-*/**
+output/
+*.iso
+*.qcow2
+*.raw
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# System files
+.DS_Store
+Thumbs.db
