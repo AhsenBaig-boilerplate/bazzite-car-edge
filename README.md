@@ -94,6 +94,25 @@ systemctl reboot
 car-edge-upgrade  # Enable Car Edge features (one-time)
 ```
 
+**📦 Available Image Tags (Use the simple ones!):**
+
+| Tag | Example | Use Case |
+|-----|---------|----------|
+| **`latest`** ⭐ | `...:latest` | **Recommended** - Always newest version |
+| **`stable`** | `...:stable` | Alias for latest (same image) |
+| `20260516` | `...:20260516` | Specific date (no commit hash needed!) |
+| `20260516-636d6e7` | `...:20260516-636d6e7` | Date + commit (for debugging) |
+
+**💡 Tip:** Just use `:latest` or `:stable` - they're the easiest to type!
+
+```bash
+# Simple update (recommended)
+rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:stable
+
+# Or use date if you want specific version
+rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:20260516
+```
+
 📖 **Detailed Instructions:** [INSTALLATION.md](docs/INSTALLATION.md) | [UPGRADE.md](docs/UPGRADE.md)
 
 ---
