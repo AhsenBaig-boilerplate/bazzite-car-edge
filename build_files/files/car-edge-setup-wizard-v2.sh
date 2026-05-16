@@ -312,8 +312,10 @@ Check logs: $LOG_FILE"
         log "All physical disk devices detected:"
         log "$all_drives"
         
-        # Build drive selection menu with detailed partition info
+        # Build simple drive selection menu (single line per drive)
         drive_list=()
+        drive_details=()  # Store detailed info for confirmation dialogs
+        
         while IFS= read -r line; do
             name=$(echo "$line" | awk '{print $1}')
             size=$(echo "$line" | awk '{print $2}')
@@ -338,24 +340,45 @@ Check logs: $LOG_FILE"
             partitions=$(lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$name" 2>/dev/null | grep -v "^$name " || echo "")
             partition_count=$(echo "$partitions" | grep -c . 2>/dev/null || echo "0")
             
-            # Build comprehensive user-friendly description
-            description="📀 Drive: /dev/$name
-   Total Size: $size"
+            # Build simple single-line description for menu
+            simple_desc="$size"
+            
+            # Add model if exists
+            if [ -n "$model" ] && [ "$model" != "" ]; then
+                simple_desc="$simple_desc - $model"
+            fi
+            
+            # Add primary label if exists
+            if [ "$partition_count" -gt "0" ]; then
+                # Get first partition's label
+                first_label=$(echo "$partitions" | head -1 | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//;s/[ \t]*$//')
+                if [ -n "$first_label" ] && [ "$first_label" != "" ]; then
+                    simple_desc="$simple_desc - \"$first_label\""
+                else
+                    simple_desc="$simple_desc - No label"
+                fi
+            else
+                simple_desc="$simple_desc - Empty/Unformatted"
+            fi
+            
+            # Build detailed info for confirmation dialog
+            detail_info="Drive: /dev/$name
+Size: $size"
             
             if [ -n "$model" ] && [ "$model" != "" ]; then
-                description="$description
-   Model: $model"
+                detail_info="$detail_info
+Model: $model"
             fi
             
             if [ "$partition_count" -eq "0" ]; then
-                description="$description
-   Status: Empty (no partitions)
-   Ready to format"
+                detail_info="$detail_info
+Status: Empty (no partitions)
+Ready to format and use"
             else
-                description="$description
-   Partitions: $partition_count
+                detail_info="$detail_info
+Current partitions: $partition_count
 
-   Current Data:"
+Partition details:"
                 
                 # Show all partitions with their details
                 while IFS= read -r part_line; do
@@ -366,93 +389,109 @@ Check logs: $LOG_FILE"
                     part_fstype=$(echo "$part_line" | awk '{print $3}')
                     part_label=$(echo "$part_line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//;s/[ \t]*$//')
                     
-                    description="$description
-   • $part_name: $part_size"
+                    detail_info="$detail_info
+• $part_name: $part_size"
                     
                     if [ -n "$part_fstype" ] && [ "$part_fstype" != "" ]; then
-                        description="$description ($part_fstype)"
+                        detail_info="$detail_info ($part_fstype)"
                     fi
                     
                     if [ -n "$part_label" ] && [ "$part_label" != "" ]; then
-                        description="$description - Label: \"$part_label\""
-                    else
-                        description="$description - (no label)"
+                        detail_info="$detail_info
+  Label: \"$part_label\""
                     fi
                 done <<< "$partitions"
                 
-                description="$description
+                detail_info="$detail_info
 
-   ⚠️  All data will be erased!"
+⚠️  ALL EXISTING DATA WILL BE ERASED!"
             fi
             
-            drive_list+=("/dev/$name" "$description")
-            log "ADDED to menu: /dev/$name with detailed info"
+            # Add to menu list
+            drive_list+=("/dev/$name" "$simple_desc")
+            drive_details+=("/dev/$name||$detail_info")
+            log "ADDED to menu: /dev/$name -> $simple_desc"
         done <<< "$all_drives"
         
         if [ ${#drive_list[@]} -eq 0 ]; then
             log "No available drives after filtering OS disk"
-            show_warning "No additional drives detected.
+            
+            # Build simple OS drive summary
+            os_summary="Your only drive: /dev/$root_device ($os_drive_size)"
+            if [ -n "$os_drive_model" ]; then
+                os_summary="$os_summary - $os_drive_model"
+            fi
+            os_summary="$os_summary
 
-$os_drive_info
+This drive contains your operating system and CANNOT be used for media storage."
+            
+            show_warning "No Additional Drives Detected
 
-This drive CANNOT be used for media storage (it contains your operating system).
+$os_summary
 
-Options to add media storage:
-1. Connect an external USB drive
-2. Install a secondary internal SSD/HDD  
-3. Skip this step and configure later
+To add media storage:
+• Connect an external USB drive (recommended: 500GB+)
+• Install a secondary internal SSD/HDD  
+• Skip this step and configure later
 
 Skipping drive setup..."
         else
             log "Available drives for media storage: ${#drive_list[@]} options"
             
-            if selected_drive=$(show_dialog --menu "⚠️ SELECT MEDIA STORAGE DRIVE ⚠️
+            # Build OS drive simple summary
+            os_summary="/dev/$root_device ($os_drive_size)"
+            if [ -n "$os_drive_model" ]; then
+                os_summary="$os_summary - $os_drive_model"
+            fi
+            os_summary="$os_summary - PROTECTED (contains OS)"
+            
+            if selected_drive=$(show_dialog --menu "SELECT MEDIA STORAGE DRIVE
 
 Choose a drive for movies, music, games, and ROMs.
 
-$os_drive_info
+🔒 YOUR OS DRIVE (Not Selectable):
+   $os_summary
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📂 AVAILABLE DRIVES FOR MEDIA STORAGE:
+📂 Available drives for media storage:
 
-⚠️  WARNING: Selected drive will be COMPLETELY ERASED and reformatted!
+⚠️  Selected drive will be COMPLETELY ERASED and reformatted!
 
-Select your media storage drive:" "${drive_list[@]}"); then
+Select drive:" "${drive_list[@]}"); then
                 log "Selected drive: $selected_drive"
                 
-                # Get detailed drive info including current partitions and labels
-                drive_info=$(lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MODEL "$selected_drive" 2>/dev/null || echo "Drive: $selected_drive")
-                current_label=$(lsblk -no LABEL "$selected_drive" 2>/dev/null | head -1)
-                log "Selected drive info: $drive_info"
-                log "Current label: $current_label"
+                # Find detailed info for this drive
+                selected_details=""
+                for detail in "${drive_details[@]}"; do
+                    drive_path=$(echo "$detail" | cut -d'|' -f1)
+                    if [ "$drive_path" = "$selected_drive" ]; then
+                        selected_details=$(echo "$detail" | cut -d'|' -f3-)
+                        break
+                    fi
+                done
                 
-                # Build warning message with current label if exists
-                warning_msg="⚠️ WARNING: FORMAT DRIVE ⚠️
-
-This will FORMAT $selected_drive and ERASE ALL DATA!"
+                log "Selected drive details: $selected_details"
                 
-                if [ -n "$current_label" ] && [ "$current_label" != "" ]; then
-                    warning_msg="$warning_msg
+                # Show detailed confirmation with all partition info
+                if show_dialog --warningyesno "⚠️  CONFIRM: FORMAT AND ERASE DRIVE ⚠️
 
-Current Label: \"$current_label\"
-This label will be LOST!"
-                fi
-                
-                warning_msg="$warning_msg
+You selected: $selected_drive
 
-Drive details:
-$drive_info
+$selected_details
 
-Current partitions (will be deleted):
-$(lsblk "$selected_drive" 2>/dev/null || echo "Unable to read")
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-ARE YOU ABSOLUTELY SURE?
+THIS WILL:
+✗ Delete ALL existing partitions
+✗ Erase ALL data on this drive
+✓ Create new partition table (GPT)
+✓ Format as ext4 for media storage
+✓ Auto-mount at /mnt/storage
 
-This action cannot be undone!"
-                
-                # Confirm formatting with extra warning
-                if show_dialog --warningyesno "$warning_msg"; then
+⚠️  THIS ACTION CANNOT BE UNDONE! ⚠️
+
+Are you ABSOLUTELY SURE?"; then
                 
                     log "User confirmed format of $selected_drive"
                     
