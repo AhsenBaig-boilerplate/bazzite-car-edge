@@ -365,25 +365,45 @@ Check logs: $LOG_FILE"
             partitions=$(lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$name" 2>/dev/null | grep -v "^$name " || echo "")
             partition_count=$(echo "$partitions" | grep -c . 2>/dev/null || echo "0")
             
-            # Build simple single-line description for menu
-            simple_desc="$size"
+            # Build detailed description for menu with partition info
+            simple_desc="💾 $size"
             
             # Add model if exists
             if [ -n "$model" ] && [ "$model" != "" ]; then
-                simple_desc="$simple_desc - $model"
+                simple_desc="$simple_desc | $model"
             fi
             
-            # Add primary label if exists
+            # Add partition details
             if [ "$partition_count" -gt "0" ]; then
-                # Get first partition's label
-                first_label=$(echo "$partitions" | head -1 | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//;s/[ \t]*$//')
-                if [ -n "$first_label" ] && [ "$first_label" != "" ]; then
-                    simple_desc="$simple_desc - \"$first_label\""
-                else
-                    simple_desc="$simple_desc - No label"
-                fi
+                simple_desc="$simple_desc | Partitions:"
+                
+                # Show all partitions with labels
+                part_num=0
+                while IFS= read -r part_line; do
+                    [ -z "$part_line" ] && continue
+                    part_num=$((part_num + 1))
+                    
+                    part_name=$(echo "$part_line" | awk '{print $1}')
+                    part_size=$(echo "$part_line" | awk '{print $2}')
+                    part_fstype=$(echo "$part_line" | awk '{print $3}')
+                    part_label=$(echo "$part_line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//;s/[ \t]*$//')
+                    
+                    if [ $part_num -gt 1 ]; then
+                        simple_desc="$simple_desc,"
+                    fi
+                    
+                    simple_desc="$simple_desc $part_size"
+                    
+                    if [ -n "$part_fstype" ] && [ "$part_fstype" != "" ]; then
+                        simple_desc="$simple_desc ($part_fstype)"
+                    fi
+                    
+                    if [ -n "$part_label" ] && [ "$part_label" != "" ]; then
+                        simple_desc="$simple_desc \"$part_label\""
+                    fi
+                done <<< "$partitions"
             else
-                simple_desc="$simple_desc - Empty/Unformatted"
+                simple_desc="$simple_desc | ✨ Empty (ready to format)"
             fi
             
             # Build detailed info for confirmation dialog
@@ -435,55 +455,104 @@ Partition details:"
             # Add to menu list
             drive_list+=("/dev/$name" "$simple_desc")
             drive_details+=("/dev/$name||$detail_info")
-            log "ADDED to menu: /dev/$name -> $simple_desc"
+            log "✅ ADDED TO MENU: /dev/$name"
+            log "   Description: $simple_desc"
         done <<< "$all_drives"
+        
+        log "════════════════════════════════════════════════"
+        log "MENU BUILD COMPLETE"
+        log "OS Drive (filtered): /dev/$root_device"
+        log "Available drives in menu: ${#drive_list[@]} drives"
+        if [ ${#drive_list[@]} -gt 0 ]; then
+            log "Menu items:"
+            for ((i=0; i<${#drive_list[@]}; i+=2)); do
+                log "  - ${drive_list[i]}: ${drive_list[i+1]}"
+            done
+        fi
+        log "════════════════════════════════════════════════"
         
         if [ ${#drive_list[@]} -eq 0 ]; then
             log "No available drives after filtering OS disk"
             
-            # Build simple OS drive summary
-            os_summary="Your only drive: /dev/$root_device ($os_drive_size)"
+            # Build detailed OS drive summary
+            os_only_summary="🔒 /dev/$root_device | $os_drive_size"
             if [ -n "$os_drive_model" ]; then
-                os_summary="$os_summary - $os_drive_model"
+                os_only_summary="$os_only_summary | $os_drive_model"
             fi
-            os_summary="$os_summary
+            os_only_summary="$os_only_summary
 
-This drive contains your operating system and CANNOT be used for media storage."
+This drive contains your operating system and CANNOT be used for media storage.
+It has been PROTECTED from selection."
             
             show_warning "No Additional Drives Detected
 
-$os_summary
+Your only drive is the OS drive:
+
+$os_only_summary
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 To add media storage:
-• Connect an external USB drive (recommended: 500GB+)
-• Install a secondary internal SSD/HDD  
-• Skip this step and configure later
+• Connect external USB drive (recommended: 500GB+)
+• Install secondary internal SSD/HDD  
+• Skip and configure later
 
 Skipping drive setup..."
         else
             log "Available drives for media storage: ${#drive_list[@]} options"
             
-            # Build OS drive simple summary
-            os_summary="/dev/$root_device ($os_drive_size)"
+            # Build detailed OS drive summary with partitions
+            os_summary="🔒 /dev/$root_device | $os_drive_size"
             if [ -n "$os_drive_model" ]; then
-                os_summary="$os_summary - $os_drive_model"
+                os_summary="$os_summary | $os_drive_model"
             fi
-            os_summary="$os_summary - PROTECTED (contains OS)"
+            
+            # Add OS partition info to summary
+            if [ -n "$os_partitions" ]; then
+                os_summary="$os_summary | Contains:"
+                part_num=0
+                while IFS= read -r part_line; do
+                    [ -z "$part_line" ] && continue
+                    part_num=$((part_num + 1))
+                    
+                    part_name=$(echo "$part_line" | awk '{print $1}')
+                    part_size=$(echo "$part_line" | awk '{print $2}')
+                    part_fstype=$(echo "$part_line" | awk '{print $3}')
+                    part_label=$(echo "$part_line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//;s/[ \t]*$//')
+                    
+                    if [ $part_num -gt 1 ]; then
+                        os_summary="$os_summary,"
+                    fi
+                    
+                    os_summary="$os_summary $part_size"
+                    
+                    if [ "$part_name" = "$root_partition_name" ]; then
+                        os_summary="$os_summary (OS)"
+                    fi
+                    
+                    if [ -n "$part_label" ] && [ "$part_label" != "" ]; then
+                        os_summary="$os_summary \"$part_label\""
+                    fi
+                done <<< "$os_partitions"
+            fi
             
             if selected_drive=$(show_dialog --menu "SELECT MEDIA STORAGE DRIVE
 
-Choose a drive for movies, music, games, and ROMs.
-
-🔒 YOUR OS DRIVE (Not Selectable):
-   $os_summary
+⚠️  The selected drive will be COMPLETELY ERASED and reformatted! ⚠️
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📂 Available drives for media storage:
+🔒 YOUR OS DRIVE (PROTECTED - NOT SELECTABLE):
 
-⚠️  Selected drive will be COMPLETELY ERASED and reformatted!
+$os_summary
 
-Select drive:" "${drive_list[@]}"); then
+This drive is NOT shown below and CANNOT be selected.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💾 AVAILABLE DRIVES FOR MEDIA STORAGE:
+
+Select a drive for movies, music, games, and ROMs:" "${drive_list[@]}"); then
                 log "Selected drive: $selected_drive"
                 
                 # CRITICAL SAFETY CHECK: Verify selected drive is NOT the OS drive
