@@ -72,7 +72,7 @@ retry_command() {
     local max_attempts=3
     local attempt=1
     local command="$1"
-    local description="$2"
+    local description="${2:-Command}"  # Default to "Command" if not provided
     
     while [ $attempt -le $max_attempts ]; do
         log "Attempting: $description (attempt $attempt/$max_attempts)"
@@ -224,26 +224,55 @@ Recommended: 500GB+ or larger"; then
     
     log "User wants to set up storage drive"
     
-    # Get root partition and its parent disk
+    # Get root partition and its parent disk - MULTIPLE METHODS
     root_partition=$(df / | tail -1 | awk '{print $1}')
     root_partition_name=$(basename "$root_partition")
     
-    # Get the parent disk of the root partition
-    root_device=$(lsblk -no PKNAME "$root_partition" 2>/dev/null || echo "")
+    log "Step 1: Root partition from df: $root_partition"
+    log "Step 2: Root partition name: $root_partition_name"
     
-    # Fallback: strip partition number/letter to get disk name
+    # Get the parent disk of the root partition - Method 1: PKNAME
+    root_device=$(lsblk -no PKNAME "$root_partition" 2>/dev/null | head -1 || echo "")
+    log "Step 3a: PKNAME result: '$root_device'"
+    
+    # Fallback Method 2: Strip partition number/letter
     if [ -z "$root_device" ]; then
-        # Handle nvme (nvme0n1p3 -> nvme0n1), sd (sda1 -> sda), etc.
-        root_device=$(echo "$root_partition_name" | sed -E 's/(nvme[0-9]+n[0-9]+)p[0-9]+/\1/' | sed 's/[0-9]*$//')
+        # Handle nvme (nvme0n1p3 -> nvme0n1), sd (sda1 -> sda), mmcblk (mmcblk0p1 -> mmcblk0)
+        root_device=$(echo "$root_partition_name" | sed -E 's/(nvme[0-9]+n[0-9]+)p[0-9]+/\1/' | sed -E 's/(mmcblk[0-9]+)p[0-9]+/\1/' | sed 's/[0-9]*$//')
+        log "Step 3b: Fallback stripping result: '$root_device'"
     fi
     
-    log "Root partition: $root_partition"
-    log "Root partition name: $root_partition_name"
-    log "Root device (OS disk): $root_device"
+    # Fallback Method 3: Use findmnt
+    if [ -z "$root_device" ]; then
+        root_device=$(findmnt -no SOURCE / | xargs lsblk -no PKNAME 2>/dev/null | head -1 || echo "")
+        log "Step 3c: findmnt fallback result: '$root_device'"
+    fi
     
     # Normalize root_device (remove any whitespace)
     root_device=$(echo "$root_device" | tr -d '[:space:]')
-    log "Normalized root device: '$root_device'"
+    
+    log "═══════════════════════════════════════════"
+    log "FINAL OS DRIVE DETECTION:"
+    log "  Root partition: $root_partition"
+    log "  Root partition name: $root_partition_name"
+    log "  Root device (OS disk): '$root_device'"
+    log "═══════════════════════════════════════════"
+    
+    # CRITICAL CHECK: Ensure root_device is not empty
+    if [ -z "$root_device" ]; then
+        log "CRITICAL ERROR: Could not determine root device!"
+        show_error "Cannot determine OS drive!
+
+Unable to identify which drive contains the operating system.
+This is required for safety.
+
+Cannot continue with drive setup.
+
+Check logs: $LOG_FILE"
+        # Skip to next section
+        log "Aborting drive setup due to safety concerns"
+    else
+        log "OS drive successfully identified: /dev/$root_device"
     
     # Get OS drive details for display
     os_drive_size=""
@@ -478,6 +507,52 @@ Partition details:"
             fi
         done <<< "$all_drives"
         
+        # ═══ ABSOLUTE FINAL SAFETY FILTER ═══
+        # Remove OS drive from drive_list even if it somehow got added
+        log "═══ FINAL SAFETY FILTER ═══"
+        log "Scanning drive_list for OS drive to remove..."
+        
+        filtered_drive_list=()
+        filtered_drive_details=()
+        
+        for ((i=0; i<${#drive_list[@]}; i+=2)); do
+            device="${drive_list[i]}"
+            desc="${drive_list[i+1]}"
+            device_name=$(basename "$device")
+            
+            # Check if this is the OS drive
+            if [ "$device_name" = "$root_device" ]; then
+                log "⚠️  REMOVING OS DRIVE FROM MENU: $device"
+                log "   This drive was incorrectly added and is now being removed!"
+                continue
+            fi
+            
+            # Check if device contains root partition
+            if lsblk -no NAME "$device" 2>/dev/null | grep -q "^${root_partition_name}$"; then
+                log "⚠️  REMOVING DRIVE WITH ROOT PARTITION: $device"
+                continue
+            fi
+            
+            # Safe to keep
+            filtered_drive_list+=("$device" "$desc")
+            
+            # Find matching details
+            for detail in "${drive_details[@]}"; do
+                detail_device=$(echo "$detail" | cut -d'|' -f1)
+                if [ "$detail_device" = "$device" ]; then
+                    filtered_drive_details+=("$detail")
+                    break
+                fi
+            done
+        done
+        
+        # Replace arrays with filtered versions
+        drive_list=("${filtered_drive_list[@]}")
+        drive_details=("${filtered_drive_details[@]}")
+        
+        log "After filtering: ${#drive_list[@]} items remain"
+        log "═══ END FINAL SAFETY FILTER ═══"
+        
         log "════════════════════════════════════════════════"
         log "MENU BUILD COMPLETE"
         log "OS Drive (filtered): /dev/$root_device"
@@ -664,6 +739,7 @@ Your drive will auto-mount on every boot."
             fi
         fi
     fi
+    fi  # Close the root_device check
 else
     log "User skipped storage drive setup"
     show_info "Skipping storage drive setup.
