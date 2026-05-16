@@ -855,14 +855,22 @@ Are you ABSOLUTELY SURE?"; then
                     
                     log "═══ END UNMOUNTING ═══"
                     
+                    # Determine partition naming (nvme/mmcblk use 'p', others don't)
+                    if [[ "$selected_drive" =~ (nvme|mmcblk) ]]; then
+                        partition="${selected_drive}p1"
+                    else
+                        partition="${selected_drive}1"
+                    fi
+                    log "Partition will be: $partition"
+                    
                     # Format drive with error handling
                     if retry_command "
                         (
                             sudo parted -s $selected_drive mklabel gpt &&
                             sudo parted -s $selected_drive mkpart primary ext4 0% 100% &&
                             sleep 2 &&
-                            sudo mkfs.ext4 -F ${selected_drive}1 &&
-                            uuid=\$(sudo blkid -s UUID -o value ${selected_drive}1) &&
+                            sudo mkfs.ext4 -F $partition &&
+                            uuid=\$(sudo blkid -s UUID -o value $partition) &&
                             echo \"UUID=\$uuid /mnt/storage ext4 defaults,nofail 0 2\" | sudo tee -a /etc/fstab &&
                             sudo mkdir -p /mnt/storage &&
                             sudo mount -a &&
