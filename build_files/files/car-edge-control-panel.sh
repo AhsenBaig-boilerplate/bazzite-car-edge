@@ -125,6 +125,8 @@ Choose how you want to update your system:" \
                           "check" "🔍 Check for Latest Updates (Automatic)" \
                           "choose" "📋 Browse All Versions (Manual)" \
                           "apply" "✅ Apply Staged Update (Requires restart)" \
+                          "status" "📊 View System Version Info" \
+                          "rollback" "↩️  Rollback to Previous Version" \
                           "auto" "⚙️  Configure Automatic Updates" \
                           "back" "← Back to Main Menu" 2>/dev/null || echo "back")
     
@@ -153,6 +155,17 @@ Choose how you want to update your system:" \
                 car-edge-apply-update
             else
                 kdialog --error "Update applier not available.\n\nPlease update to a newer build."
+            fi
+            show_updates_menu
+            ;;
+        "status")
+            local status_info=$(rpm-ostree status 2>/dev/null || echo "Could not get status")
+            kdialog --title "System Version Info" --msgbox "$status_info"
+            show_updates_menu
+            ;;
+        "rollback")
+            if kdialog --warningyesno "⚠️  Rollback to Previous Version\n\nThis will:\n• Switch to the previous OS version\n• Require a reboot to apply\n• Can be rolled back again if needed\n\nContinue?"; then
+                konsole --hold -e bash -c "echo 'Rolling back to previous version...'; rpm-ostree rollback; echo ''; echo 'Rollback prepared!'; echo 'Please reboot to apply: sudo systemctl reboot'; read -p 'Press Enter...'"
             fi
             show_updates_menu
             ;;
@@ -195,6 +208,8 @@ What would you like to do?" \
                           "setup" "🔧 Run Storage Setup Wizard" \
                           "reconfig" "🔄 Change Storage Drive (Advanced)" \
                           "browse" "📁 Open Storage Folder" \
+                          "check" "🔍 Check Storage Health" \
+                          "remount" "🔄 Remount Storage Drive" \
                           "back" "← Back to Main Menu" 2>/dev/null || echo "back")
     
     case "$choice" in
@@ -229,6 +244,22 @@ Continue?" && {
             fi
             show_storage_menu
             ;;
+        "check")
+            if mountpoint -q /mnt/storage 2>/dev/null; then
+                local device=$(findmnt -n -o SOURCE /mnt/storage | sed 's/\[.*\]//')
+                local base_device=$(echo $device | sed 's/[0-9]*$//' | sed 's/p$//')
+                konsole --hold -e bash -c "echo 'Checking storage health...'; echo ''; df -h /mnt/storage; echo ''; sudo smartctl -H $base_device 2>/dev/null || echo 'SMART not available'; read -p 'Press Enter...'"
+            else
+                kdialog --error "Storage not mounted."
+            fi
+            show_storage_menu
+            ;;
+        "remount")
+            if kdialog --yesno "Remount storage drive?\n\nThis will unmount and remount /mnt/storage.\n\nClose all apps using the storage first!"; then
+                konsole --hold -e bash -c "echo 'Remounting storage...'; sudo umount /mnt/storage 2>/dev/null; sudo mount -a; mountpoint /mnt/storage && echo 'Success!' || echo 'Failed!'; read -p 'Press Enter...'"
+            fi
+            show_storage_menu
+            ;;
         "back")
             show_main_menu
             ;;
@@ -245,7 +276,11 @@ show_apps_menu() {
 
 Choose an option:" \
                           "install" "⬇️  Install Applications (Kodi, Firefox, etc.)" \
+                          "update" "🔄 Update All Applications (Flatpak)" \
                           "list" "📋 View Installed Applications" \
+                          "uninstall" "🗑️  Uninstall Application" \
+                          "repair" "🔧 Repair Flatpak System" \
+                          "permissions" "🔐 Fix App Permissions (Flatseal)" \
                           "kodi" "🎬 Configure Kodi Media Folders" \
                           "steam" "🎮 Configure Steam Library" \
                           "back" "← Back to Main Menu" 2>/dev/null || echo "back")
@@ -259,9 +294,48 @@ Choose an option:" \
             fi
             show_apps_menu
             ;;
+        "update")
+            if kdialog --yesno "Update all Flatpak applications?\n\nThis will download and install updates for all installed apps."; then
+                kdialog --msgbox "Updating applications...\n\nThis may take a few minutes." &
+                MSGPID=$!
+                konsole --hold -e bash -c "echo 'Updating all Flatpak applications...'; flatpak update -y; echo ''; echo 'Update complete!'; read -p 'Press Enter to continue...'" &
+                kill $MSGPID 2>/dev/null || true
+            fi
+            show_apps_menu
+            ;;
         "list")
-            local apps=$(flatpak list --app 2>/dev/null | awk '{print $1" "$2}' || echo "No apps found")
+            local apps=$(flatpak list --app 2>/dev/null | awk '{print $2" ("$1")"}' || echo "No apps found")
             kdialog --title "Installed Applications" --msgbox "Installed Flatpak Applications:\n\n$apps"
+            show_apps_menu
+            ;;
+        "uninstall")
+            local app_list=$(flatpak list --app 2>/dev/null | awk '{print $1" "$2}' || echo "")
+            if [ -z "$app_list" ]; then
+                kdialog --error "No applications installed."
+            else
+                local app_to_remove=$(kdialog --menu "Select application to uninstall:" $app_list 2>/dev/null || echo "")
+                if [ -n "$app_to_remove" ]; then
+                    if kdialog --warningyesno "Uninstall $app_to_remove?\n\nThis will remove the application and its data."; then
+                        konsole --hold -e bash -c "flatpak uninstall -y $app_to_remove; read -p 'Press Enter...'" &
+                    fi
+                fi
+            fi
+            show_apps_menu
+            ;;
+        "repair")
+            if kdialog --yesno "Repair Flatpak system?\n\nThis will fix common Flatpak issues.\n\nContinue?"; then
+                konsole --hold -e bash -c "echo 'Repairing Flatpak...'; flatpak repair; echo ''; echo 'Repair complete!'; read -p 'Press Enter...'" &
+            fi
+            show_apps_menu
+            ;;
+        "permissions")
+            if flatpak list --app 2>/dev/null | grep -q "Flatseal"; then
+                flatpak run com.github.tchx84.Flatseal &
+            else
+                if kdialog --yesno "Flatseal is not installed.\n\nFlatseal lets you manage app permissions (access to files, network, etc.)\n\nInstall Flatseal now?"; then
+                    konsole --hold -e bash -c "flatpak install -y flathub com.github.tchx84.Flatseal && flatpak run com.github.tchx84.Flatseal; read -p 'Press Enter...'" &
+                fi
+            fi
             show_apps_menu
             ;;
         "kodi")
@@ -345,13 +419,23 @@ show_settings_menu() {
 
 For power users:" \
                           "power" "⚡ Power Management (TLP)" \
+                          "maintenance" "🔧 System Maintenance" \
                           "logs" "📋 View System Logs" \
+                          "services" "⚙️  Check Failed Services" \
                           "terminal" "💻 Open Terminal Here" \
                           "back" "← Back to Main Menu" 2>/dev/null || echo "back")
     
     case "$choice" in
         "power")
-            konsole -e bash -c "echo 'TLP Configuration:'; cat /etc/tlp.d/90-car-edge.conf 2>/dev/null || echo 'Not configured'; read -p 'Press Enter...'" &
+            konsole -e bash -c "echo 'TLP Configuration:'; cat /etc/tlp.d/90-car-edge.conf 2>/dev/null || echo 'Not configured'; echo ''; echo 'TLP Status:'; sudo tlp-stat --battery 2>/dev/null || echo 'TLP not available'; read -p 'Press Enter...'" &
+            show_settings_menu
+            ;;
+        "maintenance")
+            show_maintenance_menu
+            ;;
+        "services")
+            local failed=$(systemctl --failed --no-pager 2>/dev/null || echo "Could not check services")
+            kdialog --title "Failed Services" --msgbox "$failed"
             show_settings_menu
             ;;
         "logs")
@@ -452,6 +536,50 @@ Check the docs or open an issue on GitHub
 Made with ❤️  for car entertainment enthusiasts"
     
     show_main_menu
+}
+
+# System Maintenance Menu
+show_maintenance_menu() {
+    local choice=$(kdialog --title "System Maintenance" \
+                          --menu "🔧 System Maintenance & Cleanup
+
+Free up disk space and fix common issues:" \
+                          "cleanup-os" "🗑️  Clean Up Old OS Versions" \
+                          "cleanup-cache" "🗑️  Clear System Caches" \
+                          "cleanup-journal" "📋 Clean Journal Logs" \
+                          "disk-usage" "💾 Check Disk Usage" \
+                          "back" "← Back" 2>/dev/null || echo "back")
+    
+    case "$choice" in
+        "cleanup-os")
+            if kdialog --yesno "Clean up old OS deployments?\n\nThis will:\n• Remove old/unused OS versions\n• Free up disk space\n• Keep current and previous versions\n\nContinue?"; then
+                konsole --hold -e bash -c "echo 'Cleaning up old OS versions...'; sudo rpm-ostree cleanup -bp; echo ''; echo 'Cleanup complete!'; df -h / | grep -E 'Filesystem|/dev'; read -p 'Press Enter...'" &
+            fi
+            show_maintenance_menu
+            ;;
+        "cleanup-cache")
+            if kdialog --yesno "Clear system caches?\n\nThis will:\n• Clear /var/cache\n• Free up disk space\n• Safe operation\n\nContinue?"; then
+                konsole --hold -e bash -c "echo 'Clearing system caches...'; sudo rm -rf /var/cache/* 2>/dev/null; echo 'Cache cleared!'; df -h / | grep -E 'Filesystem|/dev'; read -p 'Press Enter...'" &
+            fi
+            show_maintenance_menu
+            ;;
+        "cleanup-journal")
+            if kdialog --yesno "Clean journal logs?\n\nThis will:\n• Reduce journal size to 100MB\n• Free up disk space\n• Keep recent logs\n\nContinue?"; then
+                konsole --hold -e bash -c "echo 'Current journal size:'; journalctl --disk-usage; echo ''; echo 'Cleaning journal logs...'; sudo journalctl --vacuum-size=100M; echo ''; echo 'New size:'; journalctl --disk-usage; read -p 'Press Enter...'" &
+            fi
+            show_maintenance_menu
+            ;;
+        "disk-usage")
+            konsole --hold -e bash -c "echo 'Disk Usage Report:'; echo ''; df -h; echo ''; echo 'Largest directories in home:'; du -h ~ --max-depth=1 2>/dev/null | sort -hr | head -10; read -p 'Press Enter...'" &
+            show_maintenance_menu
+            ;;
+        "back")
+            show_settings_menu
+            ;;
+        *)
+            show_settings_menu
+            ;;
+    esac
 }
 
 # Main loop
