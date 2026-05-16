@@ -4,33 +4,242 @@
 
 set -euo pipefail
 
-# Ensure we have GUI
-if [ -z "${DISPLAY:-}" ]; then
+# Check mode - diagnose installation
+if [[ "${1:-}" == "--check" ]] || [[ "${1:-}" == "--diagnose" ]]; then
+    echo "🔍 Bazzite Car Edge Control Panel - Diagnostic Check"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    # Check script location
+    echo "📄 Script Installation:"
+    if [ -x "/usr/bin/car-edge-control-panel" ]; then
+        echo "  ✅ /usr/bin/car-edge-control-panel (executable)"
+    else
+        echo "  ❌ /usr/bin/car-edge-control-panel (not found or not executable)"
+    fi
+    
+    # Check desktop file
+    echo ""
+    echo "🖥️  Desktop Entry:"
+    if [ -f "/usr/share/applications/car-edge-control-panel.desktop" ]; then
+        echo "  ✅ /usr/share/applications/car-edge-control-panel.desktop"
+    else
+        echo "  ❌ /usr/share/applications/car-edge-control-panel.desktop (not found)"
+    fi
+    
+    # Check dependencies
+    echo ""
+    echo "📦 Dependencies:"
+    for cmd in kdialog rpm-ostree jq konsole dolphin; do
+        if command -v $cmd &>/dev/null; then
+            echo "  ✅ $cmd ($(command -v $cmd))"
+        else
+            echo "  ❌ $cmd (not found)"
+        fi
+    done
+    
+    # Check environment
+    echo ""
+    echo "🌍 Environment:"
+    echo "  • User: $USER"
+    echo "  • Display: ${DISPLAY:-❌ Not set}"
+    echo "  • Desktop: ${XDG_CURRENT_DESKTOP:-Unknown}"
+    echo "  • Session: ${XDG_SESSION_TYPE:-Unknown}"
+    
+    # Check logs
+    echo ""
+    echo "📋 Log Files:"
+    for log in "$HOME/.cache/car-edge-control-panel.log" "$HOME/.cache/car-edge-control-panel-startup.log"; do
+        if [ -f "$log" ]; then
+            size=$(du -h "$log" | cut -f1)
+            lines=$(wc -l < "$log")
+            echo "  • $log ($size, $lines lines)"
+        else
+            echo "  • $log (not created yet)"
+        fi
+    done
+    
+    # Test launch
+    echo ""
+    echo "🧪 Quick Test:"
+    if [ -n "${DISPLAY:-}" ] && command -v kdialog &>/dev/null; then
+        echo "  ✅ Can launch kdialog dialogs"
+        kdialog --msgbox "✅ Control Panel check successful!
+
+kdialog is working correctly.
+
+If you still can't launch the Control Panel from the menu:
+1. Check logs: ~/.cache/car-edge-control-panel*.log
+2. Try from terminal: car-edge-control-panel
+3. Update desktop database: update-desktop-database ~/.local/share/applications" 2>/dev/null || echo "  ❌ kdialog test failed"
+    else
+        echo "  ⚠️  Cannot test kdialog (no DISPLAY or kdialog not found)"
+    fi
+    
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "To launch Control Panel: car-edge-control-panel"
+    echo "For test mode (no KDE): car-edge-control-panel --test"
+    echo ""
+    exit 0
+fi
+
+# Test mode for non-KDE systems (development)
+TEST_MODE=false
+if [[ "${1:-}" == "--test" ]] || [[ "${1:-}" == "--dry-run" ]]; then
+    TEST_MODE=true
+    echo "🧪 TEST MODE - Running without KDE (development preview)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+fi
+
+# Mock kdialog for testing
+if $TEST_MODE; then
+    kdialog() {
+        local cmd="$1"
+        shift
+        case "$cmd" in
+            --title)
+                echo "[DIALOG] Title: $1"
+                shift
+                ;;
+            --menu)
+                echo "[MENU] $1"
+                shift
+                while [[ $# -gt 0 ]]; do
+                    echo "  • $1: $2"
+                    shift 2 || break
+                done
+                echo "back"  # Return 'back' to avoid infinite loops
+                return 0
+                ;;
+            --msgbox|--sorry|--error)
+                echo "[MESSAGE] $@"
+                return 0
+                ;;
+            --yesno|--warningyesno)
+                echo "[CONFIRM] $@"
+                return 1  # Return 'no' to avoid actions
+                ;;
+            *)
+                echo "[KDIALOG $cmd] $@"
+                return 0
+                ;;
+        esac
+    }
+    export -f kdialog
+fi
+
+# Ensure we have GUI (skip in test mode)
+if [ -z "${DISPLAY:-}" ] && ! $TEST_MODE; then
     echo "Error: This application requires a graphical environment."
     echo "Please run from Desktop Mode (Ctrl+Alt+F3)"
     exit 1
 fi
 
-# Check if kdialog is available
-if ! command -v kdialog &>/dev/null; then
-    zenity --error --text="kdialog is not installed.\n\nThis application requires KDE Plasma." 2>/dev/null || \
-    echo "Error: kdialog not found" >&2
+# Check if kdialog is available (skip in test mode)
+if ! command -v kdialog &>/dev/null && ! $TEST_MODE; then
+    if command -v zenity &>/dev/null; then
+        zenity --error --text="kdialog is not installed.
+
+This application requires KDE Plasma (Bazzite Car Edge).
+
+🧪 For testing on non-KDE systems, run:
+   bash $0 --test" 2>/dev/null
+    else
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║  ERROR: Control Panel requires KDE Plasma                   ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "This Control Panel is designed for Bazzite Car Edge which"
+        echo "uses KDE Plasma desktop with kdialog."
+        echo ""
+        echo "You're currently on: $(uname -s) ($(lsb_release -ds 2>/dev/null || echo 'Unknown'))"
+        echo ""
+        echo "🧪 To preview menus without KDE (development mode):"
+        echo "   bash $0 --test"
+        echo ""
+        echo "🚗 To run the actual Control Panel:"
+        echo "   Install Bazzite Car Edge on your target hardware"
+    fi
     exit 1
 fi
 
 # Configuration
 LOG_FILE="$HOME/.cache/car-edge-control-panel.log"
+STARTUP_LOG="$HOME/.cache/car-edge-control-panel-startup.log"
 mkdir -p "$HOME/.cache"
+
+# Error handler - show errors to user
+error_handler() {
+    local line=$1
+    local command=$2
+    local error_msg="Control Panel Error at line $line: $command"
+    
+    echo "$error_msg" >> "$LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $error_msg" >> "$STARTUP_LOG"
+    
+    if ! $TEST_MODE && command -v kdialog &>/dev/null; then
+        kdialog --title "Control Panel Error" \
+                --detailederror "An error occurred while running the Control Panel.
+
+This has been logged for troubleshooting.
+
+Click 'Details' to see the error message." \
+                "Line $line: $command
+
+Log file: $LOG_FILE
+Startup log: $STARTUP_LOG
+
+To report this issue, please include the logs above."
+    fi
+    exit 1
+}
+
+# Set error trap (skip in test mode to avoid breaking test run)
+if ! $TEST_MODE; then
+    trap 'error_handler ${LINENO} "$BASH_COMMAND"' ERR
+fi
 
 # Logging
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
 }
 
+log "═══════════════════════════════════════════════"
 log "Control Panel launched"
+log "User: $USER"
+log "Display: ${DISPLAY:-not set}"
+log "Test mode: $TEST_MODE"
+log "═══════════════════════════════════════════════"
+
+# Check dependencies and log them
+if ! $TEST_MODE; then
+    log "Checking dependencies..."
+    for cmd in kdialog rpm-ostree jq; do
+        if command -v $cmd &>/dev/null; then
+            log "  ✓ $cmd: $(command -v $cmd)"
+        else
+            log "  ✗ $cmd: NOT FOUND"
+            if [ "$cmd" = "kdialog" ]; then
+                echo "ERROR: kdialog not found!" >&2
+                exit 1
+            fi
+        fi
+    done
+fi
 
 # Get current system info
 get_system_info() {
+    if $TEST_MODE; then
+        # Mock data for testing
+        echo "current_version='v1.0.0-build.123-abc1234'"
+        echo "current_tag='v1.0.0-build.123-abc1234'"
+        echo "pending_update='No'"
+        echo "storage_status='Mounted - Data (45.2GB/476.9GB used)'"
+        return
+    fi
+    
     local current_version=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[0].version // "Unknown"')
     local current_tag=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[0]["container-image-reference"]' | grep -oP ':[^:]+$' | tr -d ':' || echo "unknown")
     local pending_update="No"

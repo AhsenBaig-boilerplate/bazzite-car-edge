@@ -10,3 +10,4 @@ Terminal=false
 Categories=System;Settings;Qt;KDE;
 Keywords=updates;storage;applications;settings;car;edge;bazzite;
 StartupNotify=true
+X-KDE-StartupNotify=true
