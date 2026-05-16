@@ -108,8 +108,13 @@ log "Found tags: $TAGS"
 # Build version selection menu
 version_list=()
 
-# Add :latest option
+# Add :latest option (always first)
 version_list+=("latest" "Latest stable release (recommended)")
+
+# Add :stable option if it exists
+if echo "$TAGS" | grep -q "^stable$"; then
+    version_list+=("stable" "Stable release channel")
+fi
 
 # Add date-based tags (filter for YYYYMMDD pattern)
 while IFS= read -r tag; do
@@ -118,6 +123,11 @@ while IFS= read -r tag; do
     
     # Skip 'latest' (already added)
     [ "$tag" = "latest" ] && continue
+    
+    # Skip SHA256 digests and signatures (not user-friendly!)
+    [[ "$tag" =~ ^sha256: ]] && continue
+    [[ "$tag" =~ ^sha256- ]] && continue
+    [[ "$tag" == *.sig ]] && continue
     
     # Add date tags (YYYYMMDD format)
     if [[ "$tag" =~ ^[0-9]{8}$ ]]; then
