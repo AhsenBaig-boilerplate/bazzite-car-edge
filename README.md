@@ -155,6 +155,7 @@ car-edge-install-apps         # Install apps only
 | Document | Description |
 |----------|-------------|
 | **[INSTALLATION.md](docs/INSTALLATION.md)** | Installation methods (rebase, ISO, USB flashing) |
+| **[VERSION-TAGS.md](docs/VERSION-TAGS.md)** | **📦 Simple version tags guide (latest, stable, dates)** |
 | **[AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)** | GUI wizard walkthrough (zero terminal commands) |
 | **[FIRST-BOOT.md](docs/FIRST-BOOT.md)** | Manual setup guide (optional, for power users) |
 | **[UPGRADE.md](docs/UPGRADE.md)** | Upgrade from standard Bazzite to Car Edge |
