@@ -363,47 +363,55 @@ Check logs: $LOG_FILE"
             
             # Get ALL partitions on this drive with full details
             partitions=$(lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$name" 2>/dev/null | grep -v "^$name " || echo "")
-            partition_count=$(echo "$partitions" | grep -c . 2>/dev/null || echo "0")
+            partition_count=0
+            if [ -n "$partitions" ]; then
+                partition_count=$(echo "$partitions" | wc -l)
+            fi
             
-            # Build detailed description for menu with partition info
-            simple_desc="💾 $size"
+            log "   Found $partition_count partition(s)"
+            if [ -n "$partitions" ]; then
+                log "   Partitions: $partitions"
+            fi
+            
+            # Build user-friendly description - compact but informative
+            simple_desc="$size"
             
             # Add model if exists
             if [ -n "$model" ] && [ "$model" != "" ]; then
                 simple_desc="$simple_desc | $model"
             fi
             
-            # Add partition details
-            if [ "$partition_count" -gt "0" ]; then
-                simple_desc="$simple_desc | Partitions:"
-                
-                # Show all partitions with labels
+            # Add partition summary
+            if [ "$partition_count" -gt 0 ]; then
+                # Build compact partition list
+                part_summary=""
                 part_num=0
                 while IFS= read -r part_line; do
                     [ -z "$part_line" ] && continue
                     part_num=$((part_num + 1))
                     
-                    part_name=$(echo "$part_line" | awk '{print $1}')
                     part_size=$(echo "$part_line" | awk '{print $2}')
                     part_fstype=$(echo "$part_line" | awk '{print $3}')
                     part_label=$(echo "$part_line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//;s/[ \t]*$//')
                     
                     if [ $part_num -gt 1 ]; then
-                        simple_desc="$simple_desc,"
+                        part_summary="${part_summary}, "
                     fi
                     
-                    simple_desc="$simple_desc $part_size"
+                    part_summary="${part_summary}${part_size}"
                     
                     if [ -n "$part_fstype" ] && [ "$part_fstype" != "" ]; then
-                        simple_desc="$simple_desc ($part_fstype)"
+                        part_summary="${part_summary} ${part_fstype}"
                     fi
                     
                     if [ -n "$part_label" ] && [ "$part_label" != "" ]; then
-                        simple_desc="$simple_desc \"$part_label\""
+                        part_summary="${part_summary} [${part_label}]"
                     fi
                 done <<< "$partitions"
+                
+                simple_desc="$simple_desc | Has data: $part_summary"
             else
-                simple_desc="$simple_desc | ✨ Empty (ready to format)"
+                simple_desc="$simple_desc | Empty - Ready to use"
             fi
             
             # Build detailed info for confirmation dialog
@@ -452,22 +460,46 @@ Partition details:"
 ⚠️  ALL EXISTING DATA WILL BE ERASED!"
             fi
             
-            # Add to menu list
-            drive_list+=("/dev/$name" "$simple_desc")
-            drive_details+=("/dev/$name||$detail_info")
-            log "✅ ADDED TO MENU: /dev/$name"
-            log "   Description: $simple_desc"
+            # Add to menu list - FINAL SAFETY CHECK
+            # Absolutely verify this is NOT the OS drive before adding
+            if [ "$name" != "$root_device" ] && [ $is_os_drive -eq 0 ]; then
+                drive_list+=("/dev/$name" "$simple_desc")
+                drive_details+=("/dev/$name||$detail_info")
+                log "✅ ADDED TO MENU: /dev/$name"
+                log "   Description: $simple_desc"
+            else
+                log "❌ BLOCKED: /dev/$name - Failed final safety check (is OS drive)"
+                if [ "$name" = "$root_device" ]; then
+                    log "   Reason: name matches root_device"
+                fi
+                if [ $is_os_drive -eq 1 ]; then
+                    log "   Reason: is_os_drive flag is set"
+                fi
+            fi
         done <<< "$all_drives"
         
         log "════════════════════════════════════════════════"
         log "MENU BUILD COMPLETE"
         log "OS Drive (filtered): /dev/$root_device"
-        log "Available drives in menu: ${#drive_list[@]} drives"
+        log "Total items in drive_list array: ${#drive_list[@]}"
+        log "Number of drives (pairs): $((${#drive_list[@]} / 2))"
+        
         if [ ${#drive_list[@]} -gt 0 ]; then
-            log "Menu items:"
+            log "Menu items (device -> description):"
             for ((i=0; i<${#drive_list[@]}; i+=2)); do
-                log "  - ${drive_list[i]}: ${drive_list[i+1]}"
+                device="${drive_list[i]}"
+                desc="${drive_list[i+1]}"
+                log "  [$((i/2 + 1))] $device"
+                log "      -> $desc"
+                
+                # Final verification
+                device_name=$(basename "$device")
+                if [ "$device_name" = "$root_device" ]; then
+                    log "  ⚠️  WARNING: OS DRIVE FOUND IN MENU! This should not happen!"
+                fi
             done
+        else
+            log "drive_list is EMPTY - no selectable drives"
         fi
         log "════════════════════════════════════════════════"
         
@@ -499,60 +531,29 @@ To add media storage:
 
 Skipping drive setup..."
         else
-            log "Available drives for media storage: ${#drive_list[@]} options"
+            log "Available drives for media storage: $((${#drive_list[@]} / 2)) drive(s)"
             
-            # Build detailed OS drive summary with partitions
-            os_summary="🔒 /dev/$root_device | $os_drive_size"
+            # Build simple OS drive summary
+            os_summary="/dev/$root_device - $os_drive_size"
             if [ -n "$os_drive_model" ]; then
-                os_summary="$os_summary | $os_drive_model"
+                os_summary="$os_summary - $os_drive_model"
             fi
+            os_summary="$os_summary - Contains Operating System (PROTECTED)"
             
-            # Add OS partition info to summary
-            if [ -n "$os_partitions" ]; then
-                os_summary="$os_summary | Contains:"
-                part_num=0
-                while IFS= read -r part_line; do
-                    [ -z "$part_line" ] && continue
-                    part_num=$((part_num + 1))
-                    
-                    part_name=$(echo "$part_line" | awk '{print $1}')
-                    part_size=$(echo "$part_line" | awk '{print $2}')
-                    part_fstype=$(echo "$part_line" | awk '{print $3}')
-                    part_label=$(echo "$part_line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//;s/[ \t]*$//')
-                    
-                    if [ $part_num -gt 1 ]; then
-                        os_summary="$os_summary,"
-                    fi
-                    
-                    os_summary="$os_summary $part_size"
-                    
-                    if [ "$part_name" = "$root_partition_name" ]; then
-                        os_summary="$os_summary (OS)"
-                    fi
-                    
-                    if [ -n "$part_label" ] && [ "$part_label" != "" ]; then
-                        os_summary="$os_summary \"$part_label\""
-                    fi
-                done <<< "$os_partitions"
-            fi
-            
-            if selected_drive=$(show_dialog --menu "SELECT MEDIA STORAGE DRIVE
+            if selected_drive=$(show_dialog --menu "═══ SELECT MEDIA STORAGE DRIVE ═══
 
-⚠️  The selected drive will be COMPLETELY ERASED and reformatted! ⚠️
+⚠️  WARNING: Selected drive will be ERASED! ⚠️
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔒 YOUR OS DRIVE (PROTECTED - NOT SELECTABLE):
-
+🔒 OS DRIVE (Cannot be selected):
 $os_summary
 
-This drive is NOT shown below and CANNOT be selected.
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💾 AVAILABLE DRIVES FOR MEDIA STORAGE:
-
-Select a drive for movies, music, games, and ROMs:" "${drive_list[@]}"); then
+💾 AVAILABLE MEDIA STORAGE DRIVES:
+(Choose one for movies, music, games, ROMs)
+" "${drive_list[@]}"); then
                 log "Selected drive: $selected_drive"
                 
                 # CRITICAL SAFETY CHECK: Verify selected drive is NOT the OS drive
