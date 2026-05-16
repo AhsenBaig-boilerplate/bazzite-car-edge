@@ -797,7 +797,7 @@ THIS WILL:
 ✗ Delete ALL existing partitions
 ✗ Erase ALL data on this drive
 ✓ Create new partition table (GPT)
-✓ Format as ext4 for media storage
+✓ Format as exFAT (works on Windows, Mac, Linux)
 ✓ Auto-mount at /mnt/storage
 
 ⚠️  THIS ACTION CANNOT BE UNDONE! ⚠️
@@ -863,15 +863,15 @@ Are you ABSOLUTELY SURE?"; then
                     fi
                     log "Partition will be: $partition"
                     
-                    # Format drive with error handling
+                    # Format drive with exFAT for cross-platform compatibility (Windows, Mac, Linux)
                     if retry_command "
                         (
                             sudo parted -s $selected_drive mklabel gpt &&
-                            sudo parted -s $selected_drive mkpart primary ext4 0% 100% &&
+                            sudo parted -s $selected_drive mkpart primary 0% 100% &&
                             sleep 2 &&
-                            sudo mkfs.ext4 -F $partition &&
+                            sudo mkfs.exfat $partition &&
                             uuid=\$(sudo blkid -s UUID -o value $partition) &&
-                            echo \"UUID=\$uuid /mnt/storage ext4 defaults,nofail 0 2\" | sudo tee -a /etc/fstab &&
+                            echo \"UUID=\$uuid /mnt/storage exfat defaults,nofail,uid=1000,gid=1000 0 0\" | sudo tee -a /etc/fstab &&
                             sudo mkdir -p /mnt/storage &&
                             sudo mount -a &&
                             sudo mkdir -p /mnt/storage/{media/{movies,tv,music},games/{roms/{nes,snes,genesis,ps1,ps2},saves,steam},backups/configs} &&
@@ -879,14 +879,23 @@ Are you ABSOLUTELY SURE?"; then
                         ) 2>&1 | tee -a $LOG_FILE
                     "; then
                         log "Drive format succeeded"
-                        show_info "Storage drive configured successfully!
+                        show_info "✅ Storage drive configured successfully!
 
+Filesystem: exFAT (cross-platform compatible)
 Mount point: /mnt/storage
-Media: /mnt/storage/media/
-Games: /mnt/storage/games/
-Backups: /mnt/storage/backups/
 
-Your drive will auto-mount on every boot."
+📁 Folders created:
+   Media: /mnt/storage/media/ (movies, tv, music)
+   Games: /mnt/storage/games/ (roms, saves, steam)
+   Backups: /mnt/storage/backups/
+
+🌐 Cross-Platform Support:
+   ✓ Works on Windows (native)
+   ✓ Works on macOS (native)  
+   ✓ Works on Linux (native)
+   
+💡 This drive can be read by any device!
+   Your drive will auto-mount on every boot."
                     else
                         log "Drive setup failed or was cancelled by user"
                     fi

@@ -24,7 +24,8 @@ rpm-ostree install \
     jq \
     skopeo \
     cifs-utils \
-    nfs-utils
+    nfs-utils \
+    exfatprogs
 
 echo "✅ System utilities installed"
 echo ""
