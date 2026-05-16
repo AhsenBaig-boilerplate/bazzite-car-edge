@@ -225,27 +225,49 @@ Recommended: 500GB+ or larger"; then
     log "User wants to set up storage drive"
     
     # Get root partition and its parent disk - MULTIPLE METHODS
+    # Handle both traditional mounts and composefs (rpm-ostree)
     root_partition=$(df / | tail -1 | awk '{print $1}')
     root_partition_name=$(basename "$root_partition")
     
     log "Step 1: Root partition from df: $root_partition"
     log "Step 2: Root partition name: $root_partition_name"
     
+    # Check if using composefs (rpm-ostree systems)
+    if [ "$root_partition_name" = "composefs" ] || [ "$root_partition_name" = "overlay" ]; then
+        log "Step 3a: Detected composefs/overlay, using /sysroot method"
+        # On rpm-ostree systems, /sysroot is the real root
+        sysroot_device=$(findmnt -n -o SOURCE /sysroot 2>/dev/null | cut -d'[' -f1)
+        if [ -n "$sysroot_device" ]; then
+            root_partition="$sysroot_device"
+            root_partition_name=$(basename "$root_partition")
+            log "Step 3b: Found real device via /sysroot: $root_partition"
+        else
+            # Fallback: use /boot
+            log "Step 3c: /sysroot not found, trying /boot"
+            boot_device=$(df /boot 2>/dev/null | tail -1 | awk '{print $1}')
+            if [ -n "$boot_device" ] && [ "$boot_device" != "none" ]; then
+                root_partition="$boot_device"
+                root_partition_name=$(basename "$root_partition")
+                log "Step 3d: Found device via /boot: $root_partition"
+            fi
+        fi
+    fi
+    
     # Get the parent disk of the root partition - Method 1: PKNAME
     root_device=$(lsblk -no PKNAME "$root_partition" 2>/dev/null | head -1 || echo "")
-    log "Step 3a: PKNAME result: '$root_device'"
+    log "Step 4a: PKNAME result: '$root_device'"
     
     # Fallback Method 2: Strip partition number/letter
     if [ -z "$root_device" ]; then
         # Handle nvme (nvme0n1p3 -> nvme0n1), sd (sda1 -> sda), mmcblk (mmcblk0p1 -> mmcblk0)
         root_device=$(echo "$root_partition_name" | sed -E 's/(nvme[0-9]+n[0-9]+)p[0-9]+/\1/' | sed -E 's/(mmcblk[0-9]+)p[0-9]+/\1/' | sed 's/[0-9]*$//')
-        log "Step 3b: Fallback stripping result: '$root_device'"
+        log "Step 4b: Fallback stripping result: '$root_device'"
     fi
     
     # Fallback Method 3: Use findmnt
     if [ -z "$root_device" ]; then
         root_device=$(findmnt -no SOURCE / | xargs lsblk -no PKNAME 2>/dev/null | head -1 || echo "")
-        log "Step 3c: findmnt fallback result: '$root_device'"
+        log "Step 4c: findmnt fallback result: '$root_device'"
     fi
     
     # Normalize root_device (remove any whitespace)
