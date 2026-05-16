@@ -608,6 +608,86 @@ Skipping drive setup..."
         else
             log "Available drives for media storage: $((${#drive_list[@]} / 2)) drive(s)"
             
+            # ═══ ABSOLUTE FINAL CHECK BEFORE MENU ═══
+            log "═══ PRE-MENU OS DRIVE VERIFICATION ═══"
+            log "Performing final check for OS drive in menu..."
+            log "OS drive to exclude: /dev/$root_device"
+            
+            # Final scan - remove OS drive right before showing menu
+            final_clean_list=()
+            final_clean_details=()
+            
+            for ((i=0; i<${#drive_list[@]}; i+=2)); do
+                device="${drive_list[i]}"
+                desc="${drive_list[i+1]}"
+                device_name=$(basename "$device")
+                
+                # Multiple checks
+                is_os=0
+                
+                # Check 1: Name match
+                if [ "$device_name" = "$root_device" ]; then
+                    log "⛔ BLOCKING: $device matches OS drive name"
+                    is_os=1
+                fi
+                
+                # Check 2: Contains root partition
+                if [ $is_os -eq 0 ]; then
+                    if lsblk -no NAME "$device" 2>/dev/null | grep -q "^${root_partition_name}$"; then
+                        log "⛔ BLOCKING: $device contains root partition"
+                        is_os=1
+                    fi
+                fi
+                
+                # Check 3: Has / mount
+                if [ $is_os -eq 0 ]; then
+                    if lsblk -no MOUNTPOINT "$device" 2>/dev/null | grep -q "^/$"; then
+                        log "⛔ BLOCKING: $device has partition mounted at /"
+                        is_os=1
+                    fi
+                fi
+                
+                if [ $is_os -eq 1 ]; then
+                    log "🚫 EXCLUDED FROM MENU: $device (OS drive)"
+                    continue
+                fi
+                
+                log "✅ CLEARED FOR MENU: $device"
+                final_clean_list+=("$device" "$desc")
+                
+                # Find matching details
+                for detail in "${drive_details[@]}"; do
+                    detail_device=$(echo "$detail" | cut -d'|' -f1)
+                    if [ "$detail_device" = "$device" ]; then
+                        final_clean_details+=("$detail")
+                        break
+                    fi
+                done
+            done
+            
+            # Use the final clean list
+            drive_list=("${final_clean_list[@]}")
+            drive_details=("${final_clean_details[@]}")
+            
+            log "Final menu will have: $((${#drive_list[@]} / 2)) drive(s)"
+            log "═══ END PRE-MENU VERIFICATION ═══"
+            
+            # If no drives after final cleaning, show error
+            if [ ${#drive_list[@]} -eq 0 ]; then
+                log "ERROR: No drives available after final cleaning!"
+                show_warning "No Selectable Drives
+
+After safety filtering, no drives are available for selection.
+
+Only drive detected: /dev/$root_device (OS drive - protected)
+
+To add media storage:
+• Connect external USB drive
+• Install secondary SSD/HDD
+
+Skipping drive setup..."
+            else
+            
             # Build simple OS drive summary
             os_summary="/dev/$root_device - $os_drive_size"
             if [ -n "$os_drive_model" ]; then
@@ -704,6 +784,44 @@ Are you ABSOLUTELY SURE?"; then
                 
                     log "User confirmed format of $selected_drive"
                     
+                    # ═══ UNMOUNT ALL PARTITIONS ON SELECTED DRIVE ═══
+                    log "═══ UNMOUNTING PARTITIONS ═══"
+                    log "Checking for mounted partitions on $selected_drive..."
+                    
+                    # Get all partitions on this drive
+                    mounted_partitions=$(lsblk -no NAME,MOUNTPOINT "$selected_drive" 2>/dev/null | grep -v "^$(basename $selected_drive) " | awk '{if($2!="") print "/dev/"$1}' || echo "")
+                    
+                    if [ -n "$mounted_partitions" ]; then
+                        log "Found mounted partitions:"
+                        log "$mounted_partitions"
+                        
+                        while IFS= read -r partition; do
+                            [ -z "$partition" ] && continue
+                            log "Unmounting: $partition"
+                            if sudo umount "$partition" 2>&1 | tee -a "$LOG_FILE"; then
+                                log "✓ Successfully unmounted $partition"
+                            else
+                                log "⚠️  Failed to unmount $partition, trying force unmount..."
+                                if sudo umount -f "$partition" 2>&1 | tee -a "$LOG_FILE"; then
+                                    log "✓ Force unmounted $partition"
+                                else
+                                    log "✗ Could not unmount $partition"
+                                fi
+                            fi
+                        done <<< "$mounted_partitions"
+                        
+                        # Wait a moment for unmounts to complete
+                        sleep 1
+                    else
+                        log "No mounted partitions found"
+                    fi
+                    
+                    # Remove from fstab if present
+                    log "Removing any fstab entries for $selected_drive..."
+                    sudo sed -i "\|${selected_drive}|d" /etc/fstab 2>&1 | tee -a "$LOG_FILE"
+                    
+                    log "═══ END UNMOUNTING ═══"
+                    
                     # Format drive with error handling
                     if retry_command "
                         (
@@ -737,6 +855,7 @@ Your drive will auto-mount on every boot."
             else
                 log "User cancelled drive selection"
             fi
+            fi  # Close the drive_list empty check
         fi
     fi
     fi  # Close the root_device check
