@@ -241,6 +241,10 @@ Recommended: 500GB+ or larger"; then
     log "Root partition name: $root_partition_name"
     log "Root device (OS disk): $root_device"
     
+    # Normalize root_device (remove any whitespace)
+    root_device=$(echo "$root_device" | tr -d '[:space:]')
+    log "Normalized root device: '$root_device'"
+    
     # Get OS drive details for display
     os_drive_size=""
     os_drive_model=""
@@ -322,19 +326,40 @@ Check logs: $LOG_FILE"
             type=$(echo "$line" | awk '{print $3}')
             model=$(echo "$line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//')
             
-            log "Processing drive: $name (size: $size, type: $type)"
+            # Normalize name (remove whitespace)
+            name=$(echo "$name" | tr -d '[:space:]')
             
-            # Check if this is the OS disk
+            log "Processing drive: '$name' (size: $size, type: $type, model: $model)"
+            log "Comparing '$name' with root_device '$root_device'"
+            
+            # Check if this is the OS disk (multiple methods for safety)
+            is_os_drive=0
+            
+            # Method 1: Direct name comparison
             if [ "$name" = "$root_device" ]; then
-                log "SKIPPING OS DRIVE: $name (contains root partition $root_partition_name)"
+                log "MATCH: Direct name comparison - $name == $root_device"
+                is_os_drive=1
+            fi
+            
+            # Method 2: Check if root partition is on this disk
+            if lsblk -no NAME "/dev/$name" 2>/dev/null | grep -q "^${root_partition_name}$"; then
+                log "MATCH: Contains root partition $root_partition_name"
+                is_os_drive=1
+            fi
+            
+            # Method 3: Check if any partition on this disk is mounted at /
+            if lsblk -no MOUNTPOINT "/dev/$name" 2>/dev/null | grep -q "^/$"; then
+                log "MATCH: Has partition mounted at /"
+                is_os_drive=1
+            fi
+            
+            # Skip OS drive
+            if [ $is_os_drive -eq 1 ]; then
+                log "✗ SKIPPING OS DRIVE: $name (contains operating system)"
                 continue
             fi
             
-            # Skip if any partition on this disk contains root
-            if lsblk -no NAME "/dev/$name" 2>/dev/null | grep -q "^$root_partition_name$"; then
-                log "SKIPPING: $name contains root partition"
-                continue
-            fi
+            log "✓ SAFE: $name is NOT the OS drive, adding to menu"
             
             # Get ALL partitions on this drive with full details
             partitions=$(lsblk -no NAME,SIZE,FSTYPE,LABEL "/dev/$name" 2>/dev/null | grep -v "^$name " || echo "")
@@ -460,6 +485,45 @@ Choose a drive for movies, music, games, and ROMs.
 
 Select drive:" "${drive_list[@]}"); then
                 log "Selected drive: $selected_drive"
+                
+                # CRITICAL SAFETY CHECK: Verify selected drive is NOT the OS drive
+                selected_device=$(basename "$selected_drive")
+                log "SAFETY CHECK: Verifying selected device '$selected_device' is not OS drive '$root_device'"
+                
+                # Check if selected drive is the OS drive
+                if [ "$selected_device" = "$root_device" ]; then
+                    log "CRITICAL: User somehow selected OS drive! Blocking..."
+                    show_error "CRITICAL SAFETY ERROR
+
+You cannot format the OS drive!
+
+Selected: $selected_drive
+OS Drive: /dev/$root_device
+
+This drive contains your operating system and cannot be formatted.
+
+This should not have appeared in the menu. Please report this issue.
+
+Check logs: $LOG_FILE"
+                    continue
+                fi
+                
+                # Check if selected drive contains root partition
+                if lsblk -no MOUNTPOINT "$selected_drive" 2>/dev/null | grep -q "^/$"; then
+                    log "CRITICAL: Selected drive contains root filesystem! Blocking..."
+                    show_error "CRITICAL SAFETY ERROR
+
+This drive contains your root filesystem!
+
+Selected: $selected_drive
+
+This drive is mounted at / and CANNOT be formatted.
+
+Check logs: $LOG_FILE"
+                    continue
+                fi
+                
+                log "SAFETY CHECK PASSED: $selected_device is safe to format"
                 
                 # Find detailed info for this drive
                 selected_details=""
