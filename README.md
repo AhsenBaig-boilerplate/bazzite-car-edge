@@ -142,6 +142,43 @@ car-edge-install-apps         # Install apps only
 
 ---
 
+## 🎛️ Control Panel - Manage Everything with One Click!
+
+**🚗 Bazzite Car Edge Control Panel** - Your central hub for system management!
+
+<img src="https://img.shields.io/badge/GUI-Friendly-green" alt="GUI Friendly"/> <img src="https://img.shields.io/badge/No%20Terminal-Required-blue" alt="No Terminal Required"/>
+
+### Launch from Desktop
+
+Find **"Car Edge Control Panel"** in your application menu, or run:
+```bash
+car-edge-control-panel
+```
+
+### What You Can Do:
+
+| Feature | Description |
+|---------|-------------|
+| **🔄 System Updates** | Check for updates, browse versions, apply staged updates |
+| **💾 Storage Management** | Configure drives, browse folders, change paths |
+| **📦 Applications** | Install apps, configure Kodi/Steam, view installed software |
+| **🌐 Network Storage** | Connect to home server, configure auto-mount |
+| **💼 Backup & Restore** | Save and restore your configurations |
+| **⚙️  Advanced Settings** | Power management, logs, terminal access |
+| **ℹ️  About & Help** | Version info, documentation links |
+
+### Key Benefits:
+
+✅ **No terminal commands needed** - Everything in a friendly GUI  
+✅ **Industry-standard interface** - Familiar menus and dialogs  
+✅ **Safe operations** - Confirmation prompts for destructive actions  
+✅ **Change settings without data loss** - Reconfigure paths safely  
+✅ **Perfect for end users** - Anyone can manage the system  
+
+**Made for everyone, not just power users!** 🎉
+
+---
+
 ## 📚 Documentation
 
 ### 🌟 Start Here
