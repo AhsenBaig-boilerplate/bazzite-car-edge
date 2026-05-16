@@ -869,6 +869,9 @@ Are you ABSOLUTELY SURE?"; then
                             sudo parted -s $selected_drive mklabel gpt &&
                             sudo parted -s $selected_drive mkpart primary 0% 100% &&
                             sleep 2 &&
+                            sudo partprobe $selected_drive &&
+                            sleep 1 &&
+                            sudo wipefs -a $partition &&
                             sudo mkfs.exfat -n Data $partition &&
                             uuid=\$(sudo blkid -s UUID -o value $partition) &&
                             echo \"UUID=\$uuid /mnt/storage exfat defaults,nofail,uid=1000,gid=1000 0 0\" | sudo tee -a /etc/fstab &&
