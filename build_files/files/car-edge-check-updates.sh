@@ -9,6 +9,9 @@ IMAGE_REGISTRY="ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:latest"
 CHECK_MARKER="$HOME/.cache/car-edge-update-check"
 STAGED_MARKER="$HOME/.cache/car-edge-update-staged"
 DOWNLOAD_MARKER="$HOME/.cache/car-edge-update-downloading"
+UPDATE_AVAILABLE=false
+TARGET_REF=""
+NEW_VERSION=""
 
 # Ensure cache directory exists
 mkdir -p "$HOME/.cache"
@@ -58,9 +61,75 @@ log "Current commit: $CURRENT_COMMIT"
 
 # Check for updates (this will check :latest tag)
 log "Checking for updates..."
-UPDATE_CHECK=$(rpm-ostree upgrade --check 2>&1 || true)
 
-if echo "$UPDATE_CHECK" | grep -q "Available update"; then
+# CRITICAL: Resolve :latest to actual digest to avoid "old and new refs are equal"
+# This is necessary because rpm-ostree compares tag NAMES, not content
+log "Resolving :latest tag to actual digest..."
+
+# Get current deployment info
+CURRENT_IMAGE=$(rpm-ostree status --json | jq -r '.deployments[0]["container-image-reference"] // empty' 2>/dev/null || echo "")
+CURRENT_DIGEST=$(rpm-ostree status --json | jq -r '.deployments[0].checksum' 2>/dev/null || echo "unknown")
+
+log "Current image: $CURRENT_IMAGE"
+log "Current digest: $CURRENT_DIGEST"
+
+# Query registry for :latest digest
+if command -v skopeo &>/dev/null; then
+    LATEST_DIGEST=$(skopeo inspect docker://${IMAGE_REGISTRY} 2>/dev/null | jq -r '.Digest // empty' || echo "")
+    log "Latest digest from registry: $LATEST_DIGEST"
+    
+    if [ -n "$LATEST_DIGEST" ] && [ "$LATEST_DIGEST" != "null" ]; then
+        # Compare digests
+        if [ "$CURRENT_DIGEST" != "$LATEST_DIGEST" ]; then
+            log "Update available! Digests differ."
+            
+            # Resolve :latest to specific date-commit tag to avoid rpm-ostree confusion
+            # Get all tags for this digest
+            ALL_TAGS=$(skopeo list-tags docker://ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge 2>/dev/null | jq -r '.Tags[]' || echo "")
+            
+            # Find the date-commit tag (format: YYYYMMDD-commit)
+            SPECIFIC_TAG=$(echo "$ALL_TAGS" | grep -E '^[0-9]{8}-[a-f0-9]{7}$' | sort -r | head -1 || echo "")
+            
+            if [ -n "$SPECIFIC_TAG" ]; then
+                log "Resolved :latest to specific tag: $SPECIFIC_TAG"
+                TARGET_REF="ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:${SPECIFIC_TAG}"
+            else
+                log "Could not resolve to specific tag, using digest"
+                TARGET_REF="ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge@${LATEST_DIGEST}"
+            fi
+            
+            UPDATE_AVAILABLE=true
+            NEW_VERSION="$SPECIFIC_TAG"
+        else
+            log "Already on latest version (digests match)"
+            UPDATE_AVAILABLE=false
+        fi
+    else
+        log "Could not query registry digest, falling back to rpm-ostree upgrade --check"
+        UPDATE_CHECK=$(rpm-ostree upgrade --check 2>&1 || true)
+        
+        if echo "$UPDATE_CHECK" | grep -q "Available update"; then
+            UPDATE_AVAILABLE=true
+            NEW_VERSION=$(echo "$UPDATE_CHECK" | grep -oP 'Version: \K[^\s]+' | head -1 || echo "newer version")
+            TARGET_REF="ostree-unverified-registry:${IMAGE_REGISTRY}"
+        else
+            UPDATE_AVAILABLE=false
+        fi
+    fi
+else
+    log "skopeo not available, using rpm-ostree upgrade --check"
+    UPDATE_CHECK=$(rpm-ostree upgrade --check 2>&1 || true)
+    
+    if echo "$UPDATE_CHECK" | grep -q "Available update"; then
+        UPDATE_AVAILABLE=true
+        NEW_VERSION=$(echo "$UPDATE_CHECK" | grep -oP 'Version: \K[^\s]+' | head -1 || echo "newer version")
+        TARGET_REF="ostree-unverified-registry:${IMAGE_REGISTRY}"
+    else
+        UPDATE_AVAILABLE=false
+    fi
+fi
+
+if [ "$UPDATE_AVAILABLE" = true ]; then
     log "Update available!"
     
     # Get the new version info
@@ -148,8 +217,8 @@ To choose version: car-edge-switch-version" 2>/dev/null || true
     fi
     
     # Download and stage update in background (doesn't interrupt system)
-    log "Running rpm-ostree upgrade..."
-    if rpm-ostree upgrade 2>&1 | tee -a "$HOME/.cache/car-edge-update-checker.log"; then
+    log "Running rpm-ostree rebase to: $TARGET_REF"
+    if rpm-ostree rebase "$TARGET_REF" 2>&1 | tee -a "$HOME/.cache/car-edge-update-checker.log"; then
         log "Update downloaded and staged successfully"
         
         # Mark as staged
@@ -185,12 +254,10 @@ To choose version: car-edge-switch-version" 2>/dev/null || true
         fi
     fi
     
-elif echo "$UPDATE_CHECK" | grep -q "No updates available"; then
-    log "No updates available"
+else
+    log "No updates available (already on latest)"
     # Clear markers if no updates
     rm -f "$STAGED_MARKER" "$DOWNLOAD_MARKER"
-else
-    log "Update check result: $UPDATE_CHECK"
 fi
 
 # Update check timestamp
