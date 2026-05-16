@@ -807,17 +807,17 @@ Are you ABSOLUTELY SURE?"; then
                     log "User confirmed format of $selected_drive"
                     
                     # ═══ UNMOUNT ALL PARTITIONS ON SELECTED DRIVE ═══
-                    log "═══ UNMOUNTING PARTITIONS ═══"
+                    log "═══ UNMOUNTING PARTITIONS AND CLEARING SIGNATURES ═══"
                     log "Checking for mounted partitions on $selected_drive..."
                     
-                    # Get all partitions on this drive
-                    mounted_partitions=$(lsblk -no NAME,MOUNTPOINT "$selected_drive" 2>/dev/null | grep -v "^$(basename $selected_drive) " | awk '{if($2!="") print "/dev/"$1}' || echo "")
+                    # Get ONLY partitions that are actually mounted (have mountpoint)
+                    mounted_partitions=$(lsblk -lno NAME,MOUNTPOINT "$selected_drive" 2>/dev/null | awk '$2!="" && NR>1 {print "/dev/"$1}' || echo "")
                     
                     if [ -n "$mounted_partitions" ]; then
                         log "Found mounted partitions:"
-                        log "$mounted_partitions"
+                        echo "$mounted_partitions" | tee -a "$LOG_FILE"
                         
-                        while IFS= read -r partition; do
+                        echo "$mounted_partitions" | while IFS= read -r partition; do
                             [ -z "$partition" ] && continue
                             log "Unmounting: $partition"
                             if sudo umount "$partition" 2>&1 | tee -a "$LOG_FILE"; then
@@ -827,12 +827,12 @@ Are you ABSOLUTELY SURE?"; then
                                 if sudo umount -f "$partition" 2>&1 | tee -a "$LOG_FILE"; then
                                     log "✓ Force unmounted $partition"
                                 else
-                                    log "✗ Could not unmount $partition"
+                                    log "✗ Could not unmount $partition (may need manual intervention)"
                                 fi
                             fi
-                        done <<< "$mounted_partitions"
+                        done
                         
-                        # Wait a moment for unmounts to complete
+                        # Wait for unmounts to complete
                         sleep 1
                     else
                         log "No mounted partitions found"
@@ -840,7 +840,18 @@ Are you ABSOLUTELY SURE?"; then
                     
                     # Remove from fstab if present
                     log "Removing any fstab entries for $selected_drive..."
-                    sudo sed -i "\|${selected_drive}|d" /etc/fstab 2>&1 | tee -a "$LOG_FILE"
+                    sudo sed -i "\|${selected_drive}|d" /etc/fstab 2>&1 | tee -a "$LOG_FILE" || true
+                    
+                    # CRITICAL: Wipe filesystem signatures to release kernel locks
+                    log "Wiping filesystem signatures from $selected_drive..."
+                    if sudo wipefs -a "$selected_drive" 2>&1 | tee -a "$LOG_FILE"; then
+                        log "✓ Filesystem signatures cleared"
+                        # Tell kernel to re-read the device
+                        sudo partprobe "$selected_drive" 2>&1 | tee -a "$LOG_FILE" || true
+                        sleep 1
+                    else
+                        log "⚠️  Could not wipe signatures (continuing anyway)"
+                    fi
                     
                     log "═══ END UNMOUNTING ═══"
                     
