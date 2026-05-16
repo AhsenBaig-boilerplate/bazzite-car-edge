@@ -224,70 +224,109 @@ Recommended: 500GB+ or larger"; then
     
     log "User wants to set up storage drive"
     
-    # Get root device (what the OS is on) - get the actual disk, not partition
+    # Get root partition and its parent disk
     root_partition=$(df / | tail -1 | awk '{print $1}')
+    root_partition_name=$(basename "$root_partition")
+    
+    # Get the parent disk of the root partition
     root_device=$(lsblk -no PKNAME "$root_partition" 2>/dev/null || echo "")
     
-    # If PKNAME is empty, try getting the device without partition number
+    # Fallback: strip partition number/letter to get disk name
     if [ -z "$root_device" ]; then
-        root_device=$(echo "$root_partition" | sed 's/[0-9]*$//' | sed 's|/dev/||')
+        # Handle nvme (nvme0n1p3 -> nvme0n1), sd (sda1 -> sda), etc.
+        root_device=$(echo "$root_partition_name" | sed -E 's/(nvme[0-9]+n[0-9]+)p[0-9]+/\1/' | sed 's/[0-9]*$//')
     fi
     
     log "Root partition: $root_partition"
-    log "Root device: $root_device"
+    log "Root partition name: $root_partition_name"
+    log "Root device (OS disk): $root_device"
     
-    # Detect ALL disk devices with labels
-    all_drives=$(lsblk -ndo NAME,SIZE,TYPE,LABEL,MODEL 2>/dev/null | grep disk || echo "")
+    # Detect all physical disk devices (exclude loop, zram, rom, etc.)
+    all_drives=$(lsblk -ndo NAME,SIZE,TYPE,MODEL 2>/dev/null | grep -E '\sdisk\s' | grep -vE '^(loop|zram|sr)' || echo "")
     
     if [ -z "$all_drives" ]; then
-        log "ERROR: Failed to detect any drives"
+        log "ERROR: Failed to detect any physical drives"
         show_error "Failed to detect storage drives.
 
 Possible causes:
+• No physical drives detected
 • Permission issue
 • lsblk command failed
-• No drives detected by kernel
 
 You can skip this step and set up storage manually later.
 
 Check logs: $LOG_FILE"
     else
-        log "All detected drives:"
+        log "All physical disk devices detected:"
         log "$all_drives"
         
-        # Build drive selection menu (exclude root device)
+        # Build drive selection menu
         drive_list=()
         while IFS= read -r line; do
             name=$(echo "$line" | awk '{print $1}')
             size=$(echo "$line" | awk '{print $2}')
             type=$(echo "$line" | awk '{print $3}')
-            label=$(echo "$line" | awk '{print $4}')
-            model=$(echo "$line" | awk '{$1=$2=$3=$4=""; print $0}' | sed 's/^[ \t]*//')
+            model=$(echo "$line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//')
             
-            # Skip the root device
+            log "Processing drive: $name (size: $size, type: $type)"
+            
+            # Check if this is the OS disk
             if [ "$name" = "$root_device" ]; then
-                log "Filtering out OS drive: $name"
+                log "SKIPPING OS DRIVE: $name (contains root partition $root_partition_name)"
                 continue
             fi
             
-            # Build description with label and model
-            description="$size"
-            if [ -n "$label" ] && [ "$label" != "" ]; then
-                description="$description | Label: $label"
+            # Skip if any partition on this disk contains root
+            if lsblk -no NAME "/dev/$name" 2>/dev/null | grep -q "^$root_partition_name$"; then
+                log "SKIPPING: $name contains root partition"
+                continue
             fi
+            
+            # Get filesystem label from first partition (if exists)
+            first_partition=$(lsblk -no NAME "/dev/$name" 2>/dev/null | grep -v "^$name$" | head -1 || echo "")
+            fs_label=""
+            if [ -n "$first_partition" ]; then
+                fs_label=$(lsblk -no LABEL "/dev/$first_partition" 2>/dev/null | head -1 || echo "")
+                log "First partition $first_partition has label: '$fs_label'"
+            fi
+            
+            # Build user-friendly description
+            description="$size"
+            
+            # Add filesystem label if exists
+            if [ -n "$fs_label" ] && [ "$fs_label" != "" ]; then
+                description="$description | Label: \"$fs_label\""
+            else
+                description="$description | (no label)"
+            fi
+            
+            # Add model if exists
             if [ -n "$model" ] && [ "$model" != "" ]; then
                 description="$description | $model"
             fi
             
             drive_list+=("/dev/$name" "$description")
-            log "Added to menu: /dev/$name -> $description"
+            log "ADDED to menu: /dev/$name -> $description"
         done <<< "$all_drives"
         
         if [ ${#drive_list[@]} -eq 0 ]; then
-            log "No available drives after filtering"
+            log "No available drives after filtering OS disk"
             show_warning "No additional drives detected.
 
-All detected drives are in use by the operating system.
+Your system has only the OS drive, which contains:
+• OS Drive: /dev/$root_device
+• Root partition: $root_partition
+
+This drive CANNOT be used for media storage (contains your operating system).
+
+Options:
+1. Connect an external USB drive
+2. Install a secondary internal SSD/HDD  
+3. Skip this step for now
+
+Skipping drive setup..."
+        else
+            log "Available drives for media storage: ${#drive_list[@]} options"
 
 The following drive(s) contain your OS and cannot be used:
 • /dev/$root_device (system drive)
@@ -301,23 +340,38 @@ Skipping drive setup..."
         else
             log "Available drives: ${#drive_list[@]} options"
             
-            if selected_drive=$(show_dialog --menu "Select your storage drive for media:
+            if selected_drive=$(show_dialog --menu "⚠️ SELECT MEDIA STORAGE DRIVE ⚠️
 
-⚠️  WARNING: The selected drive will be formatted and all data erased!
+Choose a drive for movies, music, games, and ROMs.
+
+WARNING: Selected drive will be COMPLETELY ERASED!
+
+Your OS drive (/dev/$root_device) is NOT shown below for safety.
 
 Available drives:" "${drive_list[@]}"); then
                 log "Selected drive: $selected_drive"
                 
-                # Show drive info
-                drive_info=$(lsblk -o NAME,SIZE,TYPE,MODEL "$selected_drive" 2>/dev/null || echo "Drive: $selected_drive")
+                # Get detailed drive info including current partitions and labels
+                drive_info=$(lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MODEL "$selected_drive" 2>/dev/null || echo "Drive: $selected_drive")
+                current_label=$(lsblk -no LABEL "$selected_drive" 2>/dev/null | head -1)
                 log "Selected drive info: $drive_info"
+                log "Current label: $current_label"
                 
-                # Confirm formatting with extra warning
-                if show_dialog --warningyesno "⚠️ WARNING: FORMAT DRIVE ⚠️
+                # Build warning message with current label if exists
+                warning_msg="⚠️ WARNING: FORMAT DRIVE ⚠️
 
-This will FORMAT $selected_drive and ERASE ALL DATA!
+This will FORMAT $selected_drive and ERASE ALL DATA!"
+                
+                if [ -n "$current_label" ] && [ "$current_label" != "" ]; then
+                    warning_msg="$warning_msg
 
-Drive info:
+Current Label: \"$current_label\"
+This label will be LOST!"
+                fi
+                
+                warning_msg="$warning_msg
+
+Drive details:
 $drive_info
 
 Current partitions (will be deleted):
@@ -325,7 +379,10 @@ $(lsblk "$selected_drive" 2>/dev/null || echo "Unable to read")
 
 ARE YOU ABSOLUTELY SURE?
 
-This action cannot be undone!"; then
+This action cannot be undone!"
+                
+                # Confirm formatting with extra warning
+                if show_dialog --warningyesno "$warning_msg"; then
                 
                 log "User confirmed format of $selected_drive"
                 
@@ -343,9 +400,9 @@ This action cannot be undone!"; then
                         sudo mkdir -p /mnt/storage/{media/{movies,tv,music},games/{roms/{nes,snes,genesis,ps1,ps2},saves,steam},backups/configs} &&
                         sudo chown -R $USER:$USER /mnt/storage
                     ) 2>&1 | tee -a $LOG_FILE
-                " "Storage drive setup"; then
-                    
-                    show_info "Storage drive configured successfully!
+            else
+                log "User cancelled drive selection"
+                        show_info "Storage drive configured successfully!
 
 Mount point: /mnt/storage
 Media: /mnt/storage/media/
