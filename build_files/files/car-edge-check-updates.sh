@@ -83,12 +83,22 @@ if command -v skopeo &>/dev/null; then
         if [ "$CURRENT_DIGEST" != "$LATEST_DIGEST" ]; then
             log "Update available! Digests differ."
             
-            # Resolve :latest to specific date-commit tag to avoid rpm-ostree confusion
+            # Resolve :latest to specific versioned tag to avoid rpm-ostree confusion
             # Get all tags for this digest
             ALL_TAGS=$(skopeo list-tags docker://ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge 2>/dev/null | jq -r '.Tags[]' || echo "")
             
-            # Find the date-commit tag (format: YYYYMMDD-commit)
-            SPECIFIC_TAG=$(echo "$ALL_TAGS" | grep -E '^[0-9]{8}-[a-f0-9]{7}$' | sort -r | head -1 || echo "")
+            # Find the versioned tag with commit (format: v1.0.0-build.123-abc1234)
+            SPECIFIC_TAG=$(echo "$ALL_TAGS" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-build\.[0-9]+-[a-f0-9]{7}$' | sort -V -r | head -1 || echo "")
+            
+            # Fallback: Try version without commit (format: v1.0.0-build.123)
+            if [ -z "$SPECIFIC_TAG" ]; then
+                SPECIFIC_TAG=$(echo "$ALL_TAGS" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-build\.[0-9]+$' | sort -V -r | head -1 || echo "")
+            fi
+            
+            # Legacy fallback: Try date-commit tag (format: YYYYMMDD-commit)
+            if [ -z "$SPECIFIC_TAG" ]; then
+                SPECIFIC_TAG=$(echo "$ALL_TAGS" | grep -E '^[0-9]{8}-[a-f0-9]{7}$' | sort -r | head -1 || echo "")
+            fi
             
             if [ -n "$SPECIFIC_TAG" ]; then
                 log "Resolved :latest to specific tag: $SPECIFIC_TAG"

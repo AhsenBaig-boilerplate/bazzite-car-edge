@@ -94,23 +94,29 @@ systemctl reboot
 car-edge-upgrade  # Enable Car Edge features (one-time)
 ```
 
-**📦 Available Image Tags (Use the simple ones!):**
+**📦 Available Image Tags (Professional Versioning):**
 
 | Tag | Example | Use Case |
 |-----|---------|----------|
 | **`latest`** ⭐ | `...:latest` | **Recommended** - Always newest version |
-| **`stable`** | `...:stable` | Alias for latest (same image) |
-| `20260516` | `...:20260516` | Specific date (no commit hash needed!) |
-| `20260516-636d6e7` | `...:20260516-636d6e7` | Date + commit (for debugging) |
+| **`stable`** | `...:stable` | Production release channel (same as latest) |
+| **`v1.0.0-build.123-abc1234`** | `...:v1.0.0-build.123-abc1234` | Specific version with build number and commit |
+| `v1.0.0-build.123` | `...:v1.0.0-build.123` | Version without commit (cleaner) |
+| `build.123` | `...:build.123` | Just the build number |
 
-**💡 Tip:** Just use `:latest` or `:stable` - they're the easiest to type!
+**💡 Versioning Explained:**
+- **Version Numbers** (`v1.0.0`): Semantic versioning - manually bumped for major releases
+- **Build Numbers** (`build.123`): Auto-incremented by GitHub Actions with each build
+- **Commit Hash** (`abc1234`): Short git commit hash for debugging
+
+**💡 Tip:** Just use `:latest` or `:stable` - they're the easiest!
 
 ```bash
 # Simple update (recommended)
 rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:stable
 
-# Or use date if you want specific version
-rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:20260516
+# Or use specific version if you want to pin
+rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:v1.0.0-build.123
 ```
 
 📖 **Detailed Instructions:** [INSTALLATION.md](docs/INSTALLATION.md) | [UPGRADE.md](docs/UPGRADE.md)
@@ -192,7 +198,7 @@ car-edge-control-panel
 | Document | Description |
 |----------|-------------|
 | **[INSTALLATION.md](docs/INSTALLATION.md)** | Installation methods (rebase, ISO, USB flashing) |
-| **[VERSION-TAGS.md](docs/VERSION-TAGS.md)** | **📦 Simple version tags guide (latest, stable, dates)** |
+| **[VERSION-TAGS.md](docs/VERSION-TAGS.md)** | **📦 Professional versioning guide (semantic versions + build numbers)** |
 | **[AUTOMATED-SETUP.md](docs/AUTOMATED-SETUP.md)** | GUI wizard walkthrough (zero terminal commands) |
 | **[FIRST-BOOT.md](docs/FIRST-BOOT.md)** | Manual setup guide (optional, for power users) |
 | **[UPGRADE.md](docs/UPGRADE.md)** | Upgrade from standard Bazzite to Car Edge |
@@ -361,7 +367,9 @@ Built with:
 
 ## 📊 Project Status
 
-**Current Version:** v0.5-alpha (Active Development)
+**Current Version:** v1.0.0 (Production-Ready)
+
+**Note:** Build numbers auto-increment with each update (e.g., v1.0.0-build.1, v1.0.0-build.2, etc.)
 
 **Phase 1: Foundation** ✅ **COMPLETE**
 - [x] Core build system and minimal image

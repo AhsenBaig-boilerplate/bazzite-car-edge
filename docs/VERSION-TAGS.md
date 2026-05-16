@@ -8,23 +8,41 @@ They're the easiest to type and always give you the newest version!
 
 ---
 
-## 📦 Available Tags
+## 📦 Professional Semantic Versioning
 
-All builds automatically create multiple tags pointing to the same image:
+Bazzite Car Edge uses **professional semantic versioning** like commercial software:
 
 | Tag | Example | When to Use |
 |-----|---------|-------------|
-| **`latest`** ⭐ | `:latest` | **Recommended** - Always newest version (6 letters!) |
-| **`stable`** | `:stable` | Alias for latest (same image) |
-| **`20260516`** | `:20260516` | Specific date - use if you want a pinned version |
-| `20260516-636d6e7` | `:20260516-636d6e7` | Date + commit hash (for debugging/troubleshooting) |
-| `latest.20260516` | `:latest.20260516` | Date-tagged latest (rarely needed) |
+| **`latest`** ⭐ | `:latest` | **Recommended** - Always newest release |
+| **`stable`** | `:stable` | Production channel (same as latest) |
+| **`v1.0.0-build.123-abc1234`** | `:v1.0.0-build.123-abc1234` | Specific version with commit for debugging |
+| `v1.0.0-build.123` | `:v1.0.0-build.123` | Specific version (no commit hash) |
+| `build.123` | `:build.123` | Just the build number reference |
+
+### 🔢 Version Number Breakdown
+
+**Format:** `v{MAJOR}.{MINOR}.{PATCH}-build.{BUILD}-{COMMIT}`
+
+**Example:** `v1.2.3-build.456-abc1234`
+
+- **`v1`** - Major version (breaking changes)
+- **`.2`** - Minor version (new features)
+- **`.3`** - Patch version (bug fixes)
+- **`build.456`** - Auto-incremented build number (from GitHub Actions)
+- **`abc1234`** - Short git commit hash (7 characters)
+
+**For Parents/End Users:** Just remember "Version 1.2.3 - Build 456" - that's all you need!
 
 ---
 
 ## 💡 Common Commands
 
-### Update to Latest
+### Update to Latest (Recommended)
+
+**\ud83d\udc46 Use the GUI:** Open **Control Panel** \u2192 **System Updates** \u2192 **Check for Updates**
+
+**Terminal way:**
 
 ```bash
 # Easiest (recommended)
@@ -37,19 +55,19 @@ sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/
 sudo systemctl reboot
 ```
 
-### Pin to Specific Date
+### Pin to Specific Version
 
 ```bash
-# Use date-only tag (no commit hash needed!)
-sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:20260516
+# Pin to a specific version number
+sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:v1.0.0-build.123
 sudo systemctl reboot
 ```
 
-### Troubleshooting - Use Full Tag
+### Troubleshooting - Use Full Version Tag
 
 ```bash
-# Only needed if you want exact commit for debugging
-sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:20260516-636d6e7
+# Only needed if you want exact build for debugging
+sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:v1.0.0-build.123-abc1234
 sudo systemctl reboot
 ```
 
@@ -59,20 +77,32 @@ sudo systemctl reboot
 
 ### Each Build Creates 5 Tags:
 
-When code is pushed to `main`, GitHub Actions builds and tags the image:
+When code is pushed to `main`, GitHub Actions automatically builds and tags the image:
 
 ```
-Build on 2026-05-16 from commit 636d6e7
+Build #456 from commit abc1234 (Version 1.0.0)
 
 Creates tags:
-├── latest              ← Always points to newest
-├── stable              ← Same as latest
-├── 20260516            ← Just the date
-├── 20260516-636d6e7    ← Date + commit
-└── latest.20260516     ← Date-tagged latest
+├── latest                          ← Always points to newest
+├── stable                          ← Production channel
+├── v1.0.0-build.456-abc1234       ← Full version with commit hash
+├── v1.0.0-build.456               ← Version without commit
+└── build.456                       ← Just build number
 ```
 
 **They're all the same image!** Pick whichever is easiest for you.
+
+### 🔄 Version Bumping
+
+**Build numbers** auto-increment with every build (no manual action needed).
+
+**Version numbers** (v1.0.0) are bumped manually in `.github/workflows/build.yml`:
+
+- **Major version** (v2.0.0): Breaking changes, major redesigns
+- **Minor version** (v1.1.0): New features, significant updates
+- **Patch version** (v1.0.1): Bug fixes, minor improvements
+
+This follows **Semantic Versioning 2.0.0** standard (https://semver.org/).
 
 ---
 
@@ -82,22 +112,38 @@ Creates tags:
 
 **A:** None! They're aliases - same image, different names. Use whichever you prefer.
 
-### Q: Should I use the commit hash tags?
+### Q: Should I use the full version tags with commit hashes?
 
-**A:** **No, not usually.** Use `:latest` or `:stable` for normal updates. Only use commit hash tags (`20260516-636d6e7`) if:
+**A:** **Not usually.** Use `:latest` or `:stable` for normal updates. Only use full version tags (`v1.0.0-build.123-abc1234`) if:
 - You're debugging a specific issue
-- Someone asks you "what exact version are you running?"
-- You need to rollback to a specific build
+- Someone asks you "what exact build are you running?"
+- You need to pin to a specific version
+- You're reporting a bug and need to include version details
 
 ### Q: How do I know what version I'm on?
+
+**Easy way:** Open the **Control Panel** app from your application menu:
+- Click "System Updates"
+- Click "View System Version Info"
+- You'll see: "Version 1.0.0 - Build 123 (abc1234)"
+
+**Terminal way:**
 
 ```bash
 rpm-ostree status
 
 # Look for the line with ●
 # Example output:
-# ● ostree-unverified-registry:ghcr.io/.../bazzite-car-edge:20260516-636d6e7
+# ● ostree-unverified-registry:ghcr.io/.../bazzite-car-edge:v1.0.0-build.123-abc1234
+#   Version: v1.0.0-build.123-abc1234
 ```
+
+### Q: What does "Build 123" mean?
+
+**A:** It's an auto-incrementing number from GitHub Actions. Each time code is updated and built:
+- Build 122 → Build 123 → Build 124...
+- Higher number = newer build
+- Helps you know if you're on the latest version
 
 ### Q: Can I mix tags (upgrade from `20260515` to `latest`)?
 

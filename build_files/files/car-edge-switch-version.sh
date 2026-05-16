@@ -113,41 +113,62 @@ version_list+=("latest" "Latest stable release (recommended)")
 
 # Add :stable option if it exists
 if echo "$TAGS" | grep -q "^stable$"; then
-    version_list+=("stable" "Stable release channel")
+    version_list+=("stable" "Stable production release")
 fi
 
-# Add date-based tags (filter for YYYYMMDD pattern)
+# Parse version tags (professional semantic versioning)
+# Prefer versions WITH commit hashes for debugging
 while IFS= read -r tag; do
     # Skip empty lines
     [ -z "$tag" ] && continue
     
-    # Skip 'latest' (already added)
+    # Skip 'latest' and 'stable' (already added)
     [ "$tag" = "latest" ] && continue
+    [ "$tag" = "stable" ] && continue
     
     # Skip SHA256 digests and signatures (not user-friendly!)
     [[ "$tag" =~ ^sha256: ]] && continue
     [[ "$tag" =~ ^sha256- ]] && continue
     [[ "$tag" == *.sig ]] && continue
     
-    # Add date tags (YYYYMMDD format)
+    # Match: v1.0.0-build.123-abc1234 (semantic version with build number and commit)
+    if [[ "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-build\.([0-9]+)-([a-f0-9]{7})$ ]]; then
+        version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+        build_num="${BASH_REMATCH[4]}"
+        commit_hash="${BASH_REMATCH[5]}"
+        version_list+=("$tag" "Version $version - Build $build_num ($commit_hash)")
+        continue
+    fi
+    
+    # Match: v1.0.0-build.123 (semantic version with build number, no commit)
+    if [[ "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-build\.([0-9]+)$ ]]; then
+        version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+        build_num="${BASH_REMATCH[4]}"
+        version_list+=("$tag" "Version $version - Build $build_num")
+        continue
+    fi
+    
+    # Match: build.123 (simple build number reference)
+    if [[ "$tag" =~ ^build\.([0-9]+)$ ]]; then
+        build_num="${BASH_REMATCH[1]}"
+        version_list+=("$tag" "Build $build_num")
+        continue
+    fi
+    
+    # Legacy: Date tags (YYYYMMDD format) - for backwards compatibility
     if [[ "$tag" =~ ^[0-9]{8}$ ]]; then
         date_formatted=$(echo "$tag" | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3/')
-        version_list+=("$tag" "Build from $date_formatted")
+        version_list+=("$tag" "Legacy build from $date_formatted")
+        continue
     fi
     
-    # Add date+commit tags (YYYYMMDD-abcdef format)
-    if [[ "$tag" =~ ^[0-9]{8}-[a-f0-9]{7}$ ]]; then
+    # Legacy: Date+commit tags (YYYYMMDD-abcdef format)
+    if [[ "$tag" =~ ^[0-9]{8}-([a-f0-9]{7})$ ]]; then
         date_part=$(echo "$tag" | cut -d'-' -f1)
-        commit_part=$(echo "$tag" | cut -d'-' -f2)
+        commit_part="${BASH_REMATCH[1]}"
         date_formatted=$(echo "$date_part" | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3/')
-        version_list+=("$tag" "Build from $date_formatted (commit $commit_part)")
-    fi
-    
-    # Add latest.YYYYMMDD tags
-    if [[ "$tag" =~ ^latest\.[0-9]{8}$ ]]; then
-        date_part=$(echo "$tag" | cut -d'.' -f2)
-        date_formatted=$(echo "$date_part" | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3/')
-        version_list+=("$tag" "Latest from $date_formatted")
+        version_list+=("$tag" "Legacy build from $date_formatted ($commit_part)")
+        continue
     fi
 done <<< "$TAGS"
 
