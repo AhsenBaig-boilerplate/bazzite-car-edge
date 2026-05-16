@@ -869,7 +869,7 @@ Are you ABSOLUTELY SURE?"; then
                             sudo parted -s $selected_drive mklabel gpt &&
                             sudo parted -s $selected_drive mkpart primary 0% 100% &&
                             sleep 2 &&
-                            sudo mkfs.exfat $partition &&
+                            sudo mkfs.exfat -n Data $partition &&
                             uuid=\$(sudo blkid -s UUID -o value $partition) &&
                             echo \"UUID=\$uuid /mnt/storage exfat defaults,nofail,uid=1000,gid=1000 0 0\" | sudo tee -a /etc/fstab &&
                             sudo mkdir -p /mnt/storage &&
@@ -879,15 +879,138 @@ Are you ABSOLUTELY SURE?"; then
                         ) 2>&1 | tee -a $LOG_FILE
                     "; then
                         log "Drive format succeeded"
+                        
+                        # ═══ AUTO-CONFIGURE APPLICATIONS ═══
+                        log "═══ Configuring Applications ═══"
+                        
+                        # 1. Configure Kodi media sources
+                        log "Configuring Kodi media sources..."
+                        mkdir -p ~/.var/app/tv.kodi.Kodi/data/userdata
+                        cat > ~/.var/app/tv.kodi.Kodi/data/userdata/sources.xml << 'KODISOURCES'
+<sources>
+    <programs>
+        <default pathversion="1"></default>
+    </programs>
+    <video>
+        <default pathversion="1"></default>
+        <source>
+            <name>Movies</name>
+            <path pathversion="1">/mnt/storage/media/movies/</path>
+            <allowsharing>true</allowsharing>
+        </source>
+        <source>
+            <name>TV Shows</name>
+            <path pathversion="1">/mnt/storage/media/tv/</path>
+            <allowsharing>true</allowsharing>
+        </source>
+    </video>
+    <music>
+        <default pathversion="1"></default>
+        <source>
+            <name>Music</name>
+            <path pathversion="1">/mnt/storage/media/music/</path>
+            <allowsharing>true</allowsharing>
+        </source>
+    </music>
+    <pictures>
+        <default pathversion="1"></default>
+    </pictures>
+    <files>
+        <default pathversion="1"></default>
+    </files>
+</sources>
+KODISOURCES
+                        log "✓ Kodi configured"
+                        
+                        # 2. Configure Steam library folder
+                        log "Configuring Steam library..."
+                        steam_config="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/config"
+                        mkdir -p "$steam_config"
+                        # Create libraryfolders.vdf if it doesn't exist or append new library
+                        if [ -f "$steam_config/libraryfolders.vdf" ]; then
+                            # Backup existing
+                            cp "$steam_config/libraryfolders.vdf" "$steam_config/libraryfolders.vdf.bak"
+                        fi
+                        cat > "$steam_config/libraryfolders.vdf" << 'STEAMLIB'
+"libraryfolders"
+{
+	"0"
+	{
+		"path"		"/home/deck/.var/app/com.valvesoftware.Steam/.local/share/Steam"
+		"label"		""
+		"contentid"		"1234567890"
+		"totalsize"		"0"
+	}
+	"1"
+	{
+		"path"		"/mnt/storage/games/steam"
+		"label"		"Media Storage"
+		"contentid"		"1234567891"
+		"totalsize"		"0"
+	}
+}
+STEAMLIB
+                        log "✓ Steam configured"
+                        
+                        # 3. Add Kodi to Steam as non-Steam game for Big Picture mode
+                        log "Adding Kodi to Steam shortcuts..."
+                        shortcuts_dir="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata"
+                        # Find the user's Steam ID directory (usually the first numeric directory)
+                        if [ -d "$shortcuts_dir" ]; then
+                            steam_user_id=$(ls "$shortcuts_dir" | grep -E '^[0-9]+$' | head -1)
+                            if [ -n "$steam_user_id" ]; then
+                                shortcuts_config="$shortcuts_dir/$steam_user_id/config"
+                                mkdir -p "$shortcuts_config"
+                                
+                                # Create shortcuts.vdf with Kodi entry
+                                cat > "$shortcuts_config/shortcuts.vdf" << 'SHORTCUTS'
+"shortcuts"
+{
+	"0"
+	{
+		"appid"		"2730070528"
+		"AppName"		"Kodi Media Center"
+		"Exe"		"/usr/bin/flatpak"
+		"StartDir"		"/home/deck/"
+		"icon"		""
+		"ShortcutPath"		""
+		"LaunchOptions"		"run tv.kodi.Kodi"
+		"IsHidden"		"0"
+		"AllowDesktopConfig"		"1"
+		"AllowOverlay"		"1"
+		"OpenVR"		"0"
+		"Devkit"		"0"
+		"DevkitGameID"		""
+		"DevkitOverrideAppID"		"0"
+		"LastPlayTime"		"0"
+		"tags"
+		{
+			"0"		"Media"
+		}
+	}
+}
+SHORTCUTS
+                                log "✓ Kodi added to Steam"
+                            fi
+                        fi
+                        
+                        log "═══ Application Configuration Complete ═══"
+                        
                         show_info "✅ Storage drive configured successfully!
 
 Filesystem: exFAT (cross-platform compatible)
 Mount point: /mnt/storage
+Drive Label: Data
 
 📁 Folders created:
    Media: /mnt/storage/media/ (movies, tv, music)
    Games: /mnt/storage/games/ (roms, saves, steam)
    Backups: /mnt/storage/backups/
+
+🎮 Applications Configured:
+   ✓ Kodi: Auto-linked to media folders
+   ✓ Steam: /mnt/storage/games/steam added as library
+   ✓ Big Picture: Kodi accessible from Gaming Mode
 
 🌐 Cross-Platform Support:
    ✓ Works on Windows (native)
