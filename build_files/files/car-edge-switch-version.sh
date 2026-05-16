@@ -52,10 +52,12 @@ log "Prerequisites OK"
 CURRENT_IMAGE=$(rpm-ostree status --json | jq -r '.deployments[0]["container-image-reference"]' 2>/dev/null || echo "unknown")
 CURRENT_VERSION=$(rpm-ostree status --json | jq -r '.deployments[0].version' 2>/dev/null || echo "unknown")
 CURRENT_COMMIT=$(rpm-ostree status --json | jq -r '.deployments[0].checksum' 2>/dev/null | cut -c1-7 || echo "unknown")
+CURRENT_DIGEST=$(rpm-ostree status --json | jq -r '.deployments[0]["container-image-digest"]' 2>/dev/null || echo "unknown")
 
 log "Current image: $CURRENT_IMAGE"
 log "Current version: $CURRENT_VERSION"
 log "Current commit: $CURRENT_COMMIT"
+log "Current digest: $CURRENT_DIGEST"
 
 # Show current version
 kdialog --title "Bazzite Car Edge - Version Switcher" \
@@ -162,12 +164,65 @@ Available versions:" \
     
     log "User selected: $selected_version"
     
+    # If user selected "latest", resolve it to the actual commit tag
+    ACTUAL_VERSION="$selected_version"
+    RESOLVED_DIGEST=""
+    
+    if [ "$selected_version" = "latest" ]; then
+        log "Resolving 'latest' to actual commit tag..."
+        
+        # Get the digest of the latest tag
+        if LATEST_DIGEST=$(skopeo inspect "docker://$IMAGE_BASE:latest" 2>&1 | jq -r '.Digest' 2>/dev/null); then
+            log "Latest digest: $LATEST_DIGEST"
+            RESOLVED_DIGEST="$LATEST_DIGEST"
+            
+            # Check if we're already on this digest
+            if [ "$CURRENT_DIGEST" = "$LATEST_DIGEST" ]; then
+                log "Already on latest version"
+                kdialog --title "Already Up to Date" \
+                       --msgbox "You are already running the latest version!
+
+Current version: $CURRENT_VERSION
+Digest: $CURRENT_DIGEST
+
+No update needed."
+                exit 0
+            fi
+            
+            # Try to find a date-commit tag that matches this digest
+            for tag in $TAGS; do
+                if [[ "$tag" =~ ^[0-9]{8}-[a-f0-9]{7}$ ]]; then
+                    TAG_DIGEST=$(skopeo inspect "docker://$IMAGE_BASE:$tag" 2>&1 | jq -r '.Digest' 2>/dev/null || echo "")
+                    if [ "$TAG_DIGEST" = "$LATEST_DIGEST" ]; then
+                        ACTUAL_VERSION="$tag"
+                        log "Resolved 'latest' to tag: $ACTUAL_VERSION"
+                        break
+                    fi
+                fi
+            done
+            
+            # If we couldn't find a matching tag, use latest but it should work now
+            if [ "$ACTUAL_VERSION" = "latest" ]; then
+                log "Could not resolve 'latest' to specific tag, using 'latest' directly with different digest"
+                ACTUAL_VERSION="latest"
+            fi
+        else
+            log "WARNING: Failed to inspect latest tag, using 'latest' directly"
+        fi
+    fi
+    
+    # Build display version
+    DISPLAY_VERSION="$selected_version"
+    if [ "$selected_version" = "latest" ] && [ "$ACTUAL_VERSION" != "latest" ]; then
+        DISPLAY_VERSION="$selected_version (resolved to $ACTUAL_VERSION)"
+    fi
+    
     # Confirm switch
     if kdialog --title "Confirm Version Switch" \
-              --yesno "Switch to version: $selected_version?
+              --yesno "Switch to version: $DISPLAY_VERSION?
 
-Current: $CURRENT_VERSION
-New: $selected_version
+Current: $CURRENT_VERSION ($CURRENT_COMMIT)
+New: $ACTUAL_VERSION
 
 This will:
 1. Download the selected version
@@ -178,15 +233,15 @@ Your current version will be kept as rollback option.
 
 Continue?"; then
         
-        log "User confirmed switch to $selected_version"
+        log "User confirmed switch to $ACTUAL_VERSION"
         
-        # Build full image reference
-        FULL_IMAGE="ostree-unverified-registry:$IMAGE_BASE:$selected_version"
+        # Build full image reference with actual resolved version
+        FULL_IMAGE="ostree-unverified-registry:$IMAGE_BASE:$ACTUAL_VERSION"
         log "Full image: $FULL_IMAGE"
         
         # Show progress dialog
         kdialog --title "Downloading Version" \
-               --passivepopup "Downloading $selected_version...\n\nThis may take several minutes.\nCheck progress with: rpm-ostree status" 10 &
+               --passivepopup "Downloading $ACTUAL_VERSION...\n\nThis may take several minutes.\nCheck progress with: rpm-ostree status" 10 &
         
         # Perform rebase
         log "Starting rebase to $FULL_IMAGE"
@@ -196,7 +251,7 @@ Continue?"; then
             
             # Show success
             kdialog --title "Version Downloaded" \
-                   --msgbox "Version $selected_version downloaded successfully!
+                   --msgbox "Version $DISPLAY_VERSION downloaded successfully!
 
 The new version is staged and ready to apply.
 
@@ -214,7 +269,7 @@ The previous version will be available for rollback if needed."
             log "Error output: $OUTPUT"
             
             kdialog --title "Download Failed" \
-                   --error "Failed to download version $selected_version
+                   --error "Failed to download version $DISPLAY_VERSION
 
 Error:
 $OUTPUT
@@ -223,6 +278,7 @@ Possible causes:
 • Network issue
 • Invalid version tag
 • Disk space issue
+• Already on this version (try a different version)
 
 Check logs: $LOG_FILE"
         fi
