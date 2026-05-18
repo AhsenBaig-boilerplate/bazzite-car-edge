@@ -175,6 +175,12 @@ done
 
 close_progress
 
+# VS Code on Bazzite is usually sandboxed as Flatpak. These permissions improve
+# workspace and host-tool interoperability for common dev workflows.
+flatpak override --user com.visualstudio.code --filesystem=host || true
+flatpak override --user com.visualstudio.code --talk-name=org.freedesktop.Flatpak || true
+flatpak override --user com.visualstudio.code --socket=ssh-auth || true
+
 # ── Summary ────────────────────────────────────────────────────────────────────
 ok_list=""
 for n in "${installed[@]}"; do ok_list+="  ✅ $n\n"; done

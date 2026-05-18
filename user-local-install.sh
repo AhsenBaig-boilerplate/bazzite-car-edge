@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-echo "Control Panel installed to $USER_BIN and desktop entry updated in $USER_APPS."
-echo "You may need to log out and back in for the menu entry to appear."
-
 # Enhanced user-local installer for Bazzite Car Edge Control Panel
 # Copies script and desktop entry to user directories, updates Exec path, and checks Flatpak dependencies
 

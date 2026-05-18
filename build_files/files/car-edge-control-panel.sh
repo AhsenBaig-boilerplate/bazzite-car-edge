@@ -4,8 +4,6 @@
 
 set -euo pipefail
 
-# Harden all assignments and echo statements for 'configured'
-
 # Check mode - diagnose installation
 if [[ "${1:-}" == "--check" ]] || [[ "${1:-}" == "--diagnose" ]]; then
     echo "🔍 Bazzite Car Edge Control Panel - Diagnostic Check"
@@ -484,7 +482,6 @@ What would you like to do?" \
                           "check" "🔍 Check Storage Health" \
                           "remount" "🔄 Remount Storage Drive" \
                           "back" "← Back to Main Menu" 2>/dev/null || echo "back")
-
     case "$choice" in
         "setup")
             if command -v car-edge-setup-wizard &>/dev/null; then
@@ -876,11 +873,79 @@ TIMEREOF
 }
 
 # Settings Menu
+show_configuration_status() {
+    local setup_done="No"
+    local storage_mounted="No"
+    local fstab_configured="No"
+    local kodi_configured="No"
+    local auto_updates="Disabled"
+    local vscode_installed="No"
+    local vscode_host_access="No"
+
+    [ -f "$HOME/.config/car-edge-setup-complete" ] && setup_done="Yes"
+    mountpoint -q /mnt/storage 2>/dev/null && storage_mounted="Yes"
+    grep -Eq '^[^#].*\s/mnt/storage\s' /etc/fstab 2>/dev/null && fstab_configured="Yes"
+    [ -f "$HOME/.var/app/tv.kodi.Kodi/data/userdata/sources.xml" ] && kodi_configured="Yes"
+
+    if systemctl --user is-enabled car-edge-check-updates.timer >/dev/null 2>&1; then
+        auto_updates="Enabled"
+    fi
+
+    if command -v flatpak >/dev/null 2>&1 && flatpak info com.visualstudio.code >/dev/null 2>&1; then
+        vscode_installed="Yes"
+        if flatpak info --show-permissions com.visualstudio.code 2>/dev/null | grep -q "filesystems=.*host"; then
+            vscode_host_access="Yes"
+        fi
+    fi
+
+    kdialog --title "Current Configuration Status" --msgbox "Current system configuration:
+
+• Setup completed: $setup_done
+• /mnt/storage mounted: $storage_mounted
+• /etc/fstab has /mnt/storage: $fstab_configured
+• Kodi sources configured: $kodi_configured
+• Auto update checks: $auto_updates
+• VS Code installed: $vscode_installed
+• VS Code host filesystem access: $vscode_host_access
+
+This panel does not re-run setup. It only reports current state."
+}
+
+fix_vscode_permissions() {
+    if ! command -v flatpak >/dev/null 2>&1; then
+        kdialog --error "Flatpak is not available on this system."
+        return
+    fi
+
+    if ! flatpak info com.visualstudio.code >/dev/null 2>&1; then
+        kdialog --error "VS Code Flatpak is not installed.\n\nInstall it first from Applications menu or with:\nflatpak install -y flathub com.visualstudio.code"
+        return
+    fi
+
+    flatpak override --user com.visualstudio.code --filesystem=host
+    flatpak override --user com.visualstudio.code --talk-name=org.freedesktop.Flatpak
+    flatpak override --user com.visualstudio.code --socket=ssh-auth
+
+    kdialog --msgbox "VS Code permissions updated.
+
+Applied:
+• --filesystem=host
+• --talk-name=org.freedesktop.Flatpak
+• --socket=ssh-auth
+
+Close and reopen VS Code to apply changes.
+
+Note: For host-level commands from inside the Flatpak terminal, use:
+flatpak-spawn --host <command>"
+}
+
 show_settings_menu() {
     local choice=$(kdialog --title "Advanced Settings" \
                           --menu "⚙️  Advanced Configuration
 
 For power users:" \
+                          "status" "📊 View Current Configuration Status" \
+                          "vscode" "💻 Fix VS Code Command Permissions" \
                           "power" "⚡ Power Management (TLP)" \
                           "maintenance" "🔧 System Maintenance" \
                           "logs" "📋 View System Logs" \
@@ -889,6 +954,16 @@ For power users:" \
                           "back" "← Back to Main Menu" 2>/dev/null || echo "back")
     
     case "$choice" in
+        "status")
+            show_configuration_status
+            show_settings_menu
+            ;;
+        "vscode")
+            if kdialog --yesno "Apply recommended VS Code Flatpak permissions now?\n\nThis helps with workspace access and command execution in sandboxed installs."; then
+                fix_vscode_permissions
+            fi
+            show_settings_menu
+            ;;
         "power")
             konsole -e bash -c "echo 'TLP Configuration:'; cat /etc/tlp.d/90-car-edge.conf 2>/dev/null || echo 'Not configured'; echo ''; echo 'TLP Status:'; sudo tlp-stat --battery 2>/dev/null || echo 'TLP not available'; read -p 'Press Enter...'" &
             show_settings_menu

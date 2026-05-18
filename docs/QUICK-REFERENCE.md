@@ -148,6 +148,18 @@ flatpak uninstall tv.kodi.Kodi
 flatpak install flathub tv.kodi.Kodi
 ```
 
+### VS Code (Flatpak) Command Access
+```bash
+# Recommended permission overrides for VS Code Flatpak
+flatpak override --user com.visualstudio.code --filesystem=host
+flatpak override --user com.visualstudio.code --talk-name=org.freedesktop.Flatpak
+flatpak override --user com.visualstudio.code --socket=ssh-auth
+
+# Run host commands from VS Code's Flatpak terminal when needed
+flatpak-spawn --host rpm-ostree status
+flatpak-spawn --host systemctl --user status car-edge-check-updates.timer
+```
+
 ### System Not Booting
 ```bash
 # From GRUB menu, select previous deployment

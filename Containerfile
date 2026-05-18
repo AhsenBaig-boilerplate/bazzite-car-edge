@@ -39,6 +39,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     install -D -m 755 /ctx/files/car-edge-setup-wizard-v2.sh /usr/bin/car-edge-setup-wizard && \
     install -D -m 755 /ctx/files/car-edge-upgrade.sh /usr/bin/car-edge-upgrade && \
     install -D -m 755 /ctx/files/car-edge-network-mounts.sh /usr/bin/car-edge-network-mounts && \
+    install -D -m 755 /ctx/files/car-edge-mount-manager.sh /usr/bin/car-edge-mount-manager && \
     install -D -m 755 /ctx/files/car-edge-check-updates.sh /usr/bin/car-edge-check-updates && \
     install -D -m 755 /ctx/files/car-edge-apply-update.sh /usr/bin/car-edge-apply-update && \
     install -D -m 755 /ctx/files/car-edge-switch-version.sh /usr/bin/car-edge-switch-version && \
