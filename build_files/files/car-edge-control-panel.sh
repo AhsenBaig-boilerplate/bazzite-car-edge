@@ -4,6 +4,16 @@
 
 set -euo pipefail
 
+# Prevent running in sandboxed environments (Flatpak, Snap, AppImage, etc.)
+if [ -n "${FLATPAK_ID:-}" ] || [ -n "${SNAP:-}" ] || [ -n "${APPIMAGE:-}" ]; then
+    echo "ERROR: Car Edge Control Panel must not be run from a sandboxed environment (Flatpak, Snap, AppImage, etc.)."
+    echo "Please launch from the system menu or terminal as a native app."
+    if command -v kdialog &>/dev/null; then
+        kdialog --error "ERROR: Car Edge Control Panel must not be run from a sandboxed environment (Flatpak, Snap, AppImage, etc.).\n\nPlease launch from the system menu or terminal as a native app."
+    fi
+    exit 1
+fi
+
 # Check mode - diagnose installation
 if [[ "${1:-}" == "--check" ]] || [[ "${1:-}" == "--diagnose" ]]; then
     echo "🔍 Bazzite Car Edge Control Panel - Diagnostic Check"
