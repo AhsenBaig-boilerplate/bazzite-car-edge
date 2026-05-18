@@ -4,6 +4,13 @@
 
 set -euo pipefail
 
+# Debug trap: log every command before execution
+export PS4='[DEBUG] ${BASH_SOURCE}:${LINENO}: '
+exec 3>>"$HOME/.cache/car-edge-control-panel-debug.log"
+trap 'echo "[DEBUG] $(date "+%Y-%m-%d %H:%M:%S") ${BASH_SOURCE}:${LINENO}: $BASH_COMMAND" >&3' DEBUG
+
+# Harden all assignments and echo statements for 'configured'
+
 # Check mode - diagnose installation
 if [[ "${1:-}" == "--check" ]] || [[ "${1:-}" == "--diagnose" ]]; then
     echo "🔍 Bazzite Car Edge Control Panel - Diagnostic Check"
@@ -90,7 +97,6 @@ if [[ "${1:-}" == "--test" ]] || [[ "${1:-}" == "--dry-run" ]]; then
     TEST_MODE=true
     echo "🧪 TEST MODE - Running without KDE (development preview)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
 fi
 
 # Mock kdialog for testing
@@ -240,22 +246,22 @@ get_system_info() {
         return
     fi
     
-    local current_version=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[0].version // "Unknown"')
-    local current_tag=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[0]["container-image-reference"]' | grep -oP ':[^:]+$' | tr -d ':' || echo "unknown")
-    local pending_update="No"
-    
+    current_version=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[0].version // "Unknown"')
+    current_tag=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[0]["container-image-reference"]' | grep -oP ':[^:]+$' | tr -d ':' || echo "unknown")
+    pending_update="No"
+
     if rpm-ostree status 2>/dev/null | grep -q "State: pending"; then
         pending_update="Yes - Ready to install!"
     fi
-    
-    local storage_status="Not configured"
+
+    storage_status="Not configured"
     if mountpoint -q /mnt/storage 2>/dev/null; then
-        local storage_size=$(df -h /mnt/storage | tail -1 | awk '{print $2}')
-        local storage_used=$(df -h /mnt/storage | tail -1 | awk '{print $3}')
-        local storage_label=$(lsblk -no LABEL $(findmnt -n -o SOURCE /mnt/storage) 2>/dev/null || echo "Unknown")
+        storage_size=$(df -h /mnt/storage | tail -1 | awk '{print $2}')
+        storage_used=$(df -h /mnt/storage | tail -1 | awk '{print $3}')
+        storage_label=$(lsblk -no LABEL $(findmnt -n -o SOURCE /mnt/storage) 2>/dev/null || echo "Unknown")
         storage_status="Mounted - ${storage_label} (${storage_used}/${storage_size} used)"
     fi
-    
+
     echo "current_version=$current_version"
     echo "current_tag=$current_tag"
     echo "pending_update=$pending_update"
@@ -266,56 +272,74 @@ get_system_info() {
 show_main_menu() {
     # Get system info
     eval "$(get_system_info)"
-    
-    # Build info display
-    INFO_TEXT="🚗 Bazzite Car Edge Control Panel
 
-📊 System Status:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Version: $current_version
-• Image Tag: $current_tag
-• Pending Update: $pending_update
-• Storage: $storage_status
+    # Menu items: label, description, icon
+    MENU_ITEMS=(
+        "updates,System Updates,system-software-update"
+        "storage,Storage Management,drive-harddisk"
+        "apps,Applications,applications-system"
+        "network,Network Storage,network-workgroup"
+        "backup,Backup & Restore,document-save"
+        "settings,Advanced Settings,preferences-system"
+        "about,About & Help,help-about"
+        "exit,Exit,application-exit"
+    )
 
-Select an option below:"
-    
-    # Show menu
-    local choice=$(kdialog --title "🚗 Bazzite Car Edge Control Panel" \
-                          --menu "$INFO_TEXT" \
-                          "updates" "🔄 System Updates - Check for new versions" \
-                          "storage" "💾 Storage Management - Configure drives" \
-                          "apps" "📦 Applications - Install or manage apps" \
-                          "network" "🌐 Network Storage - Connect to home server" \
-                          "backup" "💼 Backup & Restore - Save your settings" \
-                          "settings" "⚙️  Advanced Settings - Power users" \
-                          "about" "ℹ️  About & Help - Version info" \
-                          "exit" "❌ Exit" 2>/dev/null || echo "exit")
-    
+    # Build yad items string
+    YAD_ITEMS=""
+    for item in "${MENU_ITEMS[@]}"; do
+        YAD_ITEMS+="$item,"
+    done
+    YAD_ITEMS="${YAD_ITEMS%,}"
+
+    # Try yad, then zenity, then fallback to terminal
+    if command -v yad &>/dev/null; then
+        choice=$(yad --icons --title="Bazzite Car Edge Control Panel" --window-icon=preferences-system \
+            --text="<b>System Status</b>\n\n<b>Version:</b> $current_version\n<b>Image Tag:</b> $current_tag\n<b>Pending Update:</b> $pending_update\n<b>Storage:</b> $storage_status" \
+            --item-separator="," --items="$YAD_ITEMS" --center --width=600 --height=400 --no-escape)
+        choice=$(echo "$choice" | cut -d'|' -f1)
+    elif command -v zenity &>/dev/null; then
+        choice=$(zenity --list --title="Bazzite Car Edge Control Panel" --column="Section" --column="Description" \
+            "Updates" "System Updates" \
+            "Storage" "Storage Management" \
+            "Apps" "Applications" \
+            "Network" "Network Storage" \
+            "Backup" "Backup & Restore" \
+            "Settings" "Advanced Settings" \
+            "About" "About & Help" \
+            "Exit" "Exit")
+        choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')
+    else
+        echo "No supported GUI dialog tool found (yad or zenity)."
+        echo "Please install yad or zenity."
+        exit 1
+    fi
+
     log "User selected: $choice"
-    
+
     case "$choice" in
-        "updates")
+        updates)
             show_updates_menu
             ;;
-        "storage")
+        storage)
             show_storage_menu
             ;;
-        "apps")
+        apps)
             show_apps_menu
             ;;
-        "network")
+        network)
             show_network_menu
             ;;
-        "backup")
+        backup)
             show_backup_menu
             ;;
-        "settings")
+        settings)
             show_settings_menu
             ;;
-        "about")
+        about)
             show_about
             ;;
-        "exit")
+        exit)
             log "User exited"
             exit 0
             ;;
@@ -415,11 +439,22 @@ $storage_info
 
 What would you like to do?" \
                           "setup" "🔧 Run Storage Setup Wizard" \
+                          "mountmgr" "🗄️  Manage Multiple Drives (No Data Loss)" \
                           "reconfig" "🔄 Change Storage Drive (Advanced)" \
                           "browse" "📁 Open Storage Folder" \
                           "check" "🔍 Check Storage Health" \
                           "remount" "🔄 Remount Storage Drive" \
                           "back" "← Back to Main Menu" 2>/dev/null || echo "back")
+            "mountmgr")
+                if [ -x "$(dirname "$0")/car-edge-mount-manager.sh" ]; then
+                    konsole --hold -e "$(dirname "$0")/car-edge-mount-manager.sh" &
+                elif command -v car-edge-mount-manager.sh &>/dev/null; then
+                    konsole --hold -e car-edge-mount-manager.sh &
+                else
+                    kdialog --error "Mount Manager script not found."
+                fi
+                show_storage_menu
+                ;;
     
     case "$choice" in
         "setup")

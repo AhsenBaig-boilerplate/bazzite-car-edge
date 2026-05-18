@@ -5,7 +5,7 @@ Name=Car Edge Control Panel
 GenericName=System Management
 Comment=Manage updates, storage, apps, and settings for Bazzite Car Edge
 Icon=preferences-system
-Exec=/usr/bin/car-edge-control-panel
+Exec=env DISPLAY=:0 /home/admins/.local/bin/car-edge-control-panel
 Terminal=false
 Categories=System;Settings;Qt;KDE;
 Keywords=updates;storage;applications;settings;car;edge;bazzite;
