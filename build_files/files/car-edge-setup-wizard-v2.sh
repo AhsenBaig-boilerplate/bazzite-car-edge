@@ -1294,37 +1294,10 @@ Run this command later when online:
   car-edge-install-apps"
     log "Skipped app installation - no network"
 else
-    if show_dialog --yesno "Install entertainment applications?
-
-This will install:
-• Kodi (media center)
-• Firefox (web browser)  
-• VS Code (editor)
-• Syncthing (file sync)
-• Kiwix (offline Wikipedia)
-• VLC (video player)
-• Gaming tools (Heroic, PrismLauncher, ProtonUp-Qt)
-
-Time: ~15-20 minutes
-Requires: Internet connection"; then
-        
-        log "Starting application installation"
-        
-        # Run installer with retry and progress
-        if retry_command "car-edge-install-apps 2>&1 | tee -a $LOG_FILE" "Application installation"; then
-            show_info "Applications installed successfully!"
-        else
-            show_warning "Application installation failed or was skipped.
-
-You can install apps later with:
-  car-edge-install-apps
-
-Check the log for details:
-  $LOG_FILE"
-        fi
-    else
-        log "User skipped app installation"
-    fi
+    log "Launching GUI app installer"
+    # car-edge-install-apps handles its own selection, progress, and confirmation dialogs
+    car-edge-install-apps 2>/dev/null || true
+    log "App installer finished (exit code: $?)"
 fi
 
 # Continue with rest of wizard steps...

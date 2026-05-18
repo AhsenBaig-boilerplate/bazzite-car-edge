@@ -573,9 +573,9 @@ Choose an option:" \
     case "$choice" in
         "install")
             if command -v car-edge-install-apps &>/dev/null; then
-                konsole -e car-edge-install-apps &
+                car-edge-install-apps
             else
-                kdialog --error "App installer not available."
+                kdialog --error "App installer not available.\n\nPlease update to a newer build."
             fi
             show_apps_menu
             ;;
