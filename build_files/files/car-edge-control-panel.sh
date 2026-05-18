@@ -64,7 +64,7 @@ if [[ "${1:-}" == "--check" ]] || [[ "${1:-}" == "--diagnose" ]]; then
     # Test launch
     echo ""
     echo "🧪 Quick Test:"
-    if [ -n "${DISPLAY:-}" ] && command -v kdialog &>/dev/null; then
+    if { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; } && command -v kdialog &>/dev/null; then
         echo "  ✅ Can launch kdialog dialogs"
         kdialog --msgbox "✅ Control Panel check successful!
 
@@ -132,7 +132,8 @@ if $TEST_MODE; then
 fi
 
 # Ensure we have GUI (skip in test mode)
-if [ -z "${DISPLAY:-}" ] && ! $TEST_MODE; then
+# Accept either X11 (DISPLAY) or Wayland (WAYLAND_DISPLAY) — Bazzite uses Wayland by default
+if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ] && ! $TEST_MODE; then
     echo "Error: This application requires a graphical environment."
     echo "Please run from Desktop Mode (Ctrl+Alt+F3)"
     exit 1

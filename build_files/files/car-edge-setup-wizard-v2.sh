@@ -949,9 +949,8 @@ Check logs: $LOG_FILE"
                 log "SAFETY CHECK PASSED: $selected_device is safe to use"
 
                 # ─── DETECT EXISTING DATA — offer mount-without-format ───────────
-                local existing_exfat_part=""
+                existing_exfat_part=""
                 while IFS= read -r part_line; do
-                    local pname ptype
                     pname=$(echo "$part_line" | awk '{print $1}')
                     ptype=$(echo "$part_line" | awk '{print $2}')
                     if [ "$ptype" = "exfat" ] && [ -n "$pname" ]; then
@@ -960,9 +959,10 @@ Check logs: $LOG_FILE"
                     fi
                 done < <(lsblk -lno NAME,FSTYPE "$selected_drive" 2>/dev/null | tail -n +2)
 
-                local drive_action="format"
+                drive_action="format"
                 if [ -n "$existing_exfat_part" ]; then
-                    local ex_label ex_size
+                    ex_label=""
+                    ex_size=""
                     ex_label=$(sudo blkid -s LABEL -o value "$existing_exfat_part" 2>/dev/null || echo "Unknown")
                     ex_size=$(lsblk -lno SIZE "$existing_exfat_part" 2>/dev/null || echo "")
                     log "Found existing exFAT partition: $existing_exfat_part (label=$ex_label, size=$ex_size)"
@@ -981,7 +981,6 @@ What would you like to do?" \
 
                 # ─── MOUNT EXISTING PATH ─────────────────────────────────────────
                 if [ "$drive_action" = "mount" ]; then
-                    local ex_uuid
                     ex_uuid=$(sudo blkid -s UUID -o value "$existing_exfat_part" 2>/dev/null || echo "")
                     if [ -z "$ex_uuid" ]; then
                         show_error "Could not read the drive's UUID.
@@ -989,7 +988,6 @@ What would you like to do?" \
 Please check that the drive is connected and try again.
 Log: $LOG_FILE"
                     else
-                        local mount_uid mount_gid
                         mount_uid=$(id -u)
                         mount_gid=$(id -g)
 
@@ -1136,7 +1134,6 @@ Are you ABSOLUTELY SURE?"; then
                     log "Partition will be: $partition"
                     
                     # Capture UID/GID now so fstab entry uses the actual logged-in user
-                    local current_uid current_gid
                     current_uid=$(id -u)
                     current_gid=$(id -g)
 
