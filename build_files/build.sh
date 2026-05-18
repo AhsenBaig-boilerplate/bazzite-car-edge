@@ -23,10 +23,39 @@ rpm-ostree install \
     wget \
     jq \
     skopeo \
-   cifs-utils \
-   nfs-utils \
-   exfatprogs \
-   code-oss
+    cifs-utils \
+    nfs-utils \
+    exfatprogs
+
+# Check if VS Code installation is enabled (default: yes)
+if [ "${INSTALL_VSCODE:-yes}" = "yes" ]; then
+    echo "Installing VS Code..."
+
+    # Ensure the VS Code repository is correctly configured
+    if [ -f /etc/yum.repos.d/vscode.repo ]; then
+        echo "Removing existing VS Code repository file to avoid conflicts."
+        rm -f /etc/yum.repos.d/vscode.repo
+    fi
+
+    # Add the VS Code repository
+    rpm-ostree install dnf5
+    dnf5 config-manager addrepo --add-or-replace --set=baseurl="https://packages.microsoft.com/yumrepos/vscode" --id="vscode"
+    dnf5 config-manager setopt vscode.enabled=1
+    dnf5 config-manager setopt vscode.gpgcheck=0
+
+    # Install VS Code
+    rpm-ostree install --nogpgcheck --enable-repo="vscode" -y code
+
+    # Ensure full permissions for the user
+    echo "Granting full permissions for VS Code..."
+    mkdir -p "$HOME/.config/Code/User"
+    chmod -R 755 "$HOME/.config/Code"
+    chown -R $USER:$USER "$HOME/.config/Code"
+
+    echo "VS Code installation completed."
+else
+    echo "Skipping VS Code installation."
+fi
 
 echo "✅ System utilities installed"
 echo ""
