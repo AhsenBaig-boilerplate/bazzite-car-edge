@@ -1,8 +1,8 @@
 # Project Status - Bazzite Car Edge
 
-**Last Updated:** May 15, 2026  
+**Last Updated:** May 17, 2026  
 **Current Phase:** Phase 3 - Validation & Testing  
-**Overall Status:** 🟢 Feature Complete, Ready for Testing
+**Overall Status:** 🟢 Blocking Bugs Fixed, Ready for Hardware Validation
 
 ---
 
@@ -16,8 +16,8 @@
 - **Production Release:** 🔴 Not Yet
 
 ### Latest Build
-- **Commit:** cd3cc1b "Remove unused service file (now created inline)"
-- **Date:** May 15, 2026
+- **Commit:** 677681b "Fix control panel launch, passwordless storage, data persistence, and stubs"
+- **Date:** May 17, 2026
 - **Status:** ✅ Building
 - **Image:** `ghcr.io/ahsenbaig-boilerplate/bazzite-car-edge:latest`
 
@@ -33,16 +33,32 @@
 - [x] Image signing (cosign)
 - [x] Automated builds
 
-### Scripts & Tools (5 commands)
+### Scripts & Tools (9 commands)
+- [x] `car-edge-control-panel` - Main GUI management panel
 - [x] `car-edge-setup-wizard` - GUI setup wizard with error handling
 - [x] `car-edge-install-apps` - Flatpak installer (10 apps)
 - [x] `car-edge-backup` - Configuration backup
 - [x] `car-edge-upgrade` - Rebase migration helper
 - [x] `car-edge-network-mounts` - SMB/NFS storage manager
+- [x] `car-edge-check-updates` - Auto-update checker (systemd timer)
+- [x] `car-edge-switch-version` - GUI version browser
+- [x] `car-edge-apply-update` - Update applier
+
+### Control Panel Features
+- [x] Desktop icon launch (fixed May 17)
+- [x] System status dashboard (version, storage, updates, backups)
+- [x] Storage management menu with live status
+- [x] Application management (install, update, uninstall, repair)
+- [x] Network storage management
+- [x] Backup & restore (including restore from backup list)
+- [x] Auto-backup via systemd user timer
+- [x] System updates & version switching
+- [x] Advanced settings & maintenance
 
 ### Wizard Features
 - [x] Auto-run on first boot (systemd + autostart)
-- [x] External drive detection & formatting
+- [x] External drive detection — mount existing OR format new
+- [x] Prevents accidental data loss (offers mount-without-format when exFAT found)
 - [x] Network storage setup (SMB/NFS)
 - [x] Application installation with progress
 - [x] Comprehensive error handling
@@ -52,12 +68,16 @@
 - [x] Completion tracking (run-once)
 
 ### Storage
-- [x] External drive auto-format (ext4)
+- [x] External drive auto-format (exFAT, cross-platform)
+- [x] Mount existing exFAT drive without data loss
+- [x] Dynamic UID/GID in fstab (not hardcoded to 1000)
+- [x] Post-mount verification with clear error on failure
 - [x] Directory structure creation
 - [x] Network storage (SMB/CIFS)
 - [x] Network storage (NFS)
-- [x] Auto-mount on boot
-- [x] Media paths pre-configured
+- [x] Auto-mount on boot (UUID-based, nofail)
+- [x] Media paths pre-configured (Kodi, Steam, RetroArch)
+- [x] Passwordless storage operations (sudoers drop-in)
 
 ### Applications (10 Flatpak Apps)
 - [x] Kodi - Media center
@@ -172,29 +192,33 @@
 ## 🎯 Next Milestones
 
 ### Immediate (Next 24 hours)
-1. ✅ Monitor build completion
-2. 🎯 Download and test ISO
-3. 🎯 Execute automated tests
-4. 🎯 VM environment walkthrough
+1. 🎯 Push 677681b → GitHub Actions build completes
+2. 🎯 Rebase Beelink (192.168.8.191) to latest
+3. 🎯 Verify: desktop icon opens panel, no password on storage setup
+4. 🎯 Execute automated tests: `bash test-system.sh`
 
 ### Short Term (Next Week)
-1. Hardware testing on Beelink Mini S13
-2. Fix any critical bugs found
-3. Record video demo
-4. Expand troubleshooting docs with real issues
+1. Hardware validation — all critical paths on Beelink Mini S13
+2. Begin Phase 4 feature work (parental controls, app install UX, or Gaming Mode autostart)
+3. Record video demo once hardware confirmed working
+4. Expand troubleshooting docs with real hardware findings
 
 ### Medium Term (Next Month)
-1. Tag v2.0 release
-2. Publish official ISO
-3. Create release announcement
-4. Gather community feedback
-5. Plan Phase 4 features
+1. Complete chosen Phase 4 features
+2. Tag v1.1.0 release (bug-fix + new features)
+3. Publish official ISO
+4. Create release announcement
+5. Gather community feedback
 
 ---
 
 ## 🐛 Known Issues
 
-### Build Issues
+### Fixed (May 17, 2026)
+- ~~Control Panel desktop icon did nothing~~ (FIXED in 677681b — wrong Exec path, yad/zenity not installed, DISPLAY=:0 broke Wayland)
+- ~~Storage setup prompted for sudo password~~ (FIXED in 677681b — sudoers drop-in added)
+- ~~Hardcoded uid=1000 in fstab broke non-deck users~~ (FIXED in 677681b)
+- ~~Re-running setup wizard destroyed existing data~~ (FIXED in 677681b — mount-existing path added)
 - ~~Service file not found in /tmp~~ (FIXED in cd3cc1b)
 - ~~Duplicate script installations~~ (FIXED in cd3cc1b)
 
@@ -204,6 +228,7 @@
 - Performance on Intel N150 not verified
 - Controller detection not tested
 - WiFi auto-mount behavior unknown
+- Control panel and wizard fixes need hardware confirmation (192.168.8.191)
 
 ### Documentation
 - Missing screenshots (waiting for real system)

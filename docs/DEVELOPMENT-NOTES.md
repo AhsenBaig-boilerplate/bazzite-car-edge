@@ -1,6 +1,6 @@
 # Development Notes - Bazzite Car Edge
 
-## Project Context (May 16, 2026)
+## Project Context (May 17, 2026)
 
 **Purpose:** Professional car entertainment system for parents/families  
 **Repository:** https://github.com/AhsenBaig-boilerplate/bazzite-car-edge  
@@ -11,11 +11,11 @@
 
 ## Latest Session Summary
 
-### Recent Commits (May 16, 2026)
+### Recent Commits (May 17, 2026)
+- **677681b**: Fix control panel launch, passwordless storage, data persistence, and stubs ← LATEST
+- **89e0715**: Commit format
 - **308e790**: Fix Control Panel launch + diagnostic tool
 - **d531737**: Professional semantic versioning system
-- **f9adb0c**: Filter SHA256 digests from version selector  
-- **e4ea68e**: Enhanced Control Panel - all doc commands in GUI
 
 ### Current Status
 ✅ **COMPLETE:**
@@ -26,27 +26,31 @@
 - exFAT cross-platform filesystem
 - Auto-update system with background downloads
 - SHA digest filtering (no cryptographic hashes in GUI)
-- Diagnostic tools (--check flag)
+- **Control Panel desktop icon launch (FIXED 677681b)**
+- **Passwordless storage setup (FIXED 677681b — sudoers drop-in)**
+- **Dynamic UID/GID in fstab (FIXED 677681b — was hardcoded 1000)**
+- **Mount-existing-drive path in wizard (ADDED 677681b)**
+- **System status dashboard in Control Panel (ADDED 677681b)**
+- **Backup restore + auto-backup timer (ADDED 677681b)**
 
-🚧 **IN PROGRESS:**
-- Control Panel launch issue on Bazzite OS (diagnostic added, awaiting test)
+⏳ **AWAITING HARDWARE TEST:**
+- All fixes need confirmation on Beelink at 192.168.8.191
 
-### Active Issue: Control Panel Won't Open
-**User Report:** Clicked Control Panel icon on Bazzite OS, nothing happens
+### Root Causes Fixed in 677681b
 
-**Actions Taken:**
-1. Added error_handler() with kdialog error dialogs
-2. Added --check diagnostic mode
-3. Added startup logging (~/.cache/car-edge-control-panel*.log)
-4. Enhanced desktop file with X-KDE-StartupNotify
-5. Committed as 308e790
+**Control Panel desktop icon (3 separate bugs):**
+1. `.desktop` Exec pointed to `/home/admins/.local/bin/` — image installs to `/usr/bin/`
+2. `DISPLAY=:0` in Exec broke Wayland (Bazzite default session type)
+3. `show_main_menu()` used `yad`/`zenity` — neither installed; all submenus correctly used `kdialog`
+4. Per-command `trap '...' DEBUG` caused silent exits under `set -euo pipefail`
 
-**Next Steps:**
-1. Wait for GitHub Actions build to complete (~10 min)
-2. Test on remote PC: `ssh admins@192.168.8.191`
-3. Run diagnostic: `car-edge-control-panel --check`
-4. Check logs: `cat ~/.cache/car-edge-control-panel*.log`
-5. Report findings
+**Storage — passwordless:** `99-car-edge-storage` sudoers drop-in, installed at `/etc/sudoers.d/` with mode 440.
+
+**Data persistence:** fstab now writes `uid=$(id -u),gid=$(id -g)` instead of `uid=1000,gid=1000`.
+
+**Mount-existing:** wizard detects exFAT on selected drive → offers Mount/Format/Cancel before touching anything.
+
+**Shared function:** `configure_apps_for_storage()` (wizard line 179) — Kodi sources.xml + Steam libraryfolders.vdf + Steam shortcuts. Called by both format and mount paths.
 
 ---
 
@@ -139,16 +143,11 @@ rpm-ostree uses **composefs** overlay filesystem.
 **Solution:** Filter these tags in version switcher  
 **Code:** `car-edge-switch-version.sh` - skip sha256 patterns
 
-### Issue: Control Panel Won't Open 🚧
-**Status:** IN PROGRESS (commit 308e790)  
-**Symptoms:** Click icon on Bazzite OS, nothing happens  
-**Actions Taken:**
-- Added error_handler() with kdialog display
-- Added diagnostic mode: `car-edge-control-panel --check`
-- Added startup logging
-- Enhanced desktop file
-
-**Awaiting:** Test results from actual Bazzite hardware
+### Issue: Control Panel Won't Open ❌→✅
+**Status:** FIXED (commit 677681b)  
+**Root Causes:** Wrong Exec path in .desktop, DISPLAY=:0 broke Wayland, main menu used yad/zenity (not installed), DEBUG trap caused silent exits  
+**Fix:** Correct Exec to `/usr/bin/car-edge-control-panel`, remove DISPLAY override, rewrite `show_main_menu()` with kdialog, remove per-command DEBUG trap  
+**Awaiting:** Hardware confirmation at 192.168.8.191
 
 ---
 
@@ -254,15 +253,14 @@ git push origin main
 
 ## Next Steps
 
-1. ✅ Test Control Panel diagnostic on 192.168.8.191
-2. ⏳ Verify all GUI features work correctly
-3. ⏳ Document any remaining issues found
-4. 🔮 Consider: Tutorial wizard for first-time users
-5. 🔮 Consider: Auto-install Control Panel icon to desktop
-6. 🔮 Consider: Video demo for documentation
+1. 🎯 Push to GitHub, wait for build, rebase Beelink at 192.168.8.191
+2. 🎯 Verify: desktop icon opens panel, wizard runs passwordless, mount-existing works
+3. 🎯 Run: `bash test-system.sh` — all checks should pass
+4. 🔮 Phase 4 feature: parental controls / app install UX / Gaming Mode Kodi autostart
+5. 🔮 Video demo once hardware confirmed working
 
 ---
 
-**Last Updated:** May 16, 2026  
-**Latest Commit:** 308e790 (Control Panel diagnostic tool)  
-**Status:** Awaiting hardware testing
+**Last Updated:** May 17, 2026  
+**Latest Commit:** 677681b (Fix control panel launch, passwordless storage, data persistence, stubs)  
+**Status:** Fixes committed, awaiting hardware validation
