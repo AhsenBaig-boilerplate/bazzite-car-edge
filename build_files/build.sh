@@ -44,7 +44,7 @@ if [ "${INSTALL_VSCODE:-yes}" = "yes" ]; then
     dnf5 config-manager setopt vscode.gpgcheck=0
 
     # Install VS Code
-    rpm-ostree install --nogpgcheck --enable-repo="vscode" -y code
+    rpm-ostree install --enable-repo="vscode" -y code
 
     # Ensure full permissions for the user
     echo "Granting full permissions for VS Code..."

@@ -32,7 +32,6 @@ APPS=(
     "com.github.zocker_160.SyncThingy|Syncthing|🔄 Auto-sync files with your home computer|yes"
     "org.kiwix.desktop|Kiwix|📚 Offline Wikipedia and reference books|yes"
     "net.davidotek.pupgui2|ProtonUp-Qt|⚙️  Manage Proton/Wine compatibility versions|no"
-    "com.visualstudio.code|VS Code|💻 Code editor and text viewer|no"
 )
 
 # ── Build checklist args ───────────────────────────────────────────────────────
