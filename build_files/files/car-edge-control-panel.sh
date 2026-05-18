@@ -4,11 +4,6 @@
 
 set -euo pipefail
 
-# Debug trap: log every command before execution
-export PS4='[DEBUG] ${BASH_SOURCE}:${LINENO}: '
-exec 3>>"$HOME/.cache/car-edge-control-panel-debug.log"
-trap 'echo "[DEBUG] $(date "+%Y-%m-%d %H:%M:%S") ${BASH_SOURCE}:${LINENO}: $BASH_COMMAND" >&3' DEBUG
-
 # Harden all assignments and echo statements for 'configured'
 
 # Check mode - diagnose installation
@@ -235,37 +230,100 @@ if ! $TEST_MODE; then
     done
 fi
 
-# Get current system info
+# Get current system info — prints KEY=VALUE lines, call with eval "$(get_system_info)"
 get_system_info() {
     if $TEST_MODE; then
-        # Mock data for testing
         echo "current_version='v1.0.0-build.123-abc1234'"
-        echo "current_tag='v1.0.0-build.123-abc1234'"
         echo "pending_update='No'"
         echo "storage_status='Mounted - Data (45.2GB/476.9GB used)'"
+        echo "auto_updates='enabled'"
+        echo "last_backup='2026-05-16 11:00'"
+        echo "network_mounts='0'"
         return
     fi
-    
-    current_version=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[0].version // "Unknown"')
-    current_tag=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments[0]["container-image-reference"]' | grep -oP ':[^:]+$' | tr -d ':' || echo "unknown")
-    pending_update="No"
 
+    local current_version pending_update storage_status auto_updates last_backup network_mounts
+
+    current_version=$(rpm-ostree status --json 2>/dev/null \
+        | jq -r '.deployments[0].version // "Unknown"' 2>/dev/null || echo "Unknown")
+
+    pending_update="No"
     if rpm-ostree status 2>/dev/null | grep -q "State: pending"; then
-        pending_update="Yes - Ready to install!"
+        pending_update="Yes — ready to install"
     fi
 
     storage_status="Not configured"
     if mountpoint -q /mnt/storage 2>/dev/null; then
+        local storage_size storage_used storage_label
         storage_size=$(df -h /mnt/storage | tail -1 | awk '{print $2}')
         storage_used=$(df -h /mnt/storage | tail -1 | awk '{print $3}')
-        storage_label=$(lsblk -no LABEL $(findmnt -n -o SOURCE /mnt/storage) 2>/dev/null || echo "Unknown")
-        storage_status="Mounted - ${storage_label} (${storage_used}/${storage_size} used)"
+        storage_label=$(lsblk -no LABEL "$(findmnt -n -o SOURCE /mnt/storage)" 2>/dev/null || echo "")
+        [ -z "$storage_label" ] && storage_label="Data"
+        storage_status="Mounted — ${storage_label} (${storage_used}/${storage_size} used)"
     fi
 
+    auto_updates=$(systemctl --user is-enabled car-edge-check-updates.timer 2>/dev/null || echo "disabled")
+
+    last_backup="Never"
+    if [ -d /mnt/storage/backups/configs ]; then
+        local newest
+        newest=$(ls -t /mnt/storage/backups/configs/*.tar.gz 2>/dev/null | head -1)
+        if [ -n "$newest" ]; then
+            last_backup=$(date -r "$newest" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "Unknown")
+        fi
+    fi
+
+    network_mounts=$(find "$HOME/.config/systemd/user/" -name "*.mount" 2>/dev/null | wc -l || echo "0")
+
     echo "current_version=$current_version"
-    echo "current_tag=$current_tag"
     echo "pending_update=$pending_update"
     echo "storage_status=$storage_status"
+    echo "auto_updates=$auto_updates"
+    echo "last_backup=$last_backup"
+    echo "network_mounts=$network_mounts"
+}
+
+# Full system status dashboard — read-only info screen
+show_system_status() {
+    eval "$(get_system_info)"
+
+    local update_icon="✅"
+    [ "$pending_update" != "No" ] && update_icon="🔔"
+
+    local storage_icon="❌"
+    [[ "$storage_status" == Mounted* ]] && storage_icon="✅"
+
+    local autoupdate_icon="❌"
+    [ "$auto_updates" = "enabled" ] && autoupdate_icon="✅"
+
+    local net_label="None configured"
+    [ "$network_mounts" -gt 0 ] 2>/dev/null && net_label="$network_mounts active"
+
+    kdialog --title "📊 System Status" --msgbox \
+"🚗 Bazzite Car Edge — Current Configuration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🖥️  OS Version
+    $current_version
+
+$update_icon Pending Update
+    $pending_update
+
+$storage_icon Data Drive
+    $storage_status
+
+$autoupdate_icon Auto-Updates
+    $auto_updates
+
+🌐 Network Mounts
+    $net_label
+
+💼 Last Backup
+    $last_backup
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Use the main menu to change any of these." 2>/dev/null || true
+    show_main_menu
 }
 
 # Main menu
@@ -273,47 +331,24 @@ show_main_menu() {
     # Get system info
     eval "$(get_system_info)"
 
-    # Menu items: label, description, icon
-    MENU_ITEMS=(
-        "updates,System Updates,system-software-update"
-        "storage,Storage Management,drive-harddisk"
-        "apps,Applications,applications-system"
-        "network,Network Storage,network-workgroup"
-        "backup,Backup & Restore,document-save"
-        "settings,Advanced Settings,preferences-system"
-        "about,About & Help,help-about"
-        "exit,Exit,application-exit"
-    )
-
-    # Build yad items string
-    YAD_ITEMS=""
-    for item in "${MENU_ITEMS[@]}"; do
-        YAD_ITEMS+="$item,"
-    done
-    YAD_ITEMS="${YAD_ITEMS%,}"
-
-    # Try yad, then zenity, then fallback to terminal
-    if command -v yad &>/dev/null; then
-        choice=$(yad --icons --title="Bazzite Car Edge Control Panel" --window-icon=preferences-system \
-            --text="<b>System Status</b>\n\n<b>Version:</b> $current_version\n<b>Image Tag:</b> $current_tag\n<b>Pending Update:</b> $pending_update\n<b>Storage:</b> $storage_status" \
-            --item-separator="," --items="$YAD_ITEMS" --center --width=600 --height=400 --no-escape)
-        choice=$(echo "$choice" | cut -d'|' -f1)
-    elif command -v zenity &>/dev/null; then
-        choice=$(zenity --list --title="Bazzite Car Edge Control Panel" --column="Section" --column="Description" \
-            "Updates" "System Updates" \
-            "Storage" "Storage Management" \
-            "Apps" "Applications" \
-            "Network" "Network Storage" \
-            "Backup" "Backup & Restore" \
-            "Settings" "Advanced Settings" \
-            "About" "About & Help" \
-            "Exit" "Exit")
-        choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')
-    else
-        echo "No supported GUI dialog tool found (yad or zenity)."
-        echo "Please install yad or zenity."
-        exit 1
-    fi
+    local choice
+    choice=$(kdialog --title "🚗 Bazzite Car Edge" \
+                     --menu "System Status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Version:        $current_version
+Pending Update: $pending_update
+Storage:        $storage_status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+What would you like to do?" \
+                     "updates"  "🔄 System Updates" \
+                     "storage"  "💾 Storage Management" \
+                     "apps"     "📦 Applications" \
+                     "network"  "🌐 Network Storage" \
+                     "backup"   "💼 Backup & Restore" \
+                     "settings" "⚙️  Advanced Settings" \
+                     "status"   "📊 View Full System Status" \
+                     "about"    "ℹ️  About & Help" \
+                     "exit"     "✖  Exit" 2>/dev/null || echo "exit")
 
     log "User selected: $choice"
 
@@ -338,6 +373,9 @@ show_main_menu() {
             ;;
         about)
             show_about
+            ;;
+        status)
+            show_system_status
             ;;
         exit)
             log "User exited"
@@ -445,17 +483,7 @@ What would you like to do?" \
                           "check" "🔍 Check Storage Health" \
                           "remount" "🔄 Remount Storage Drive" \
                           "back" "← Back to Main Menu" 2>/dev/null || echo "back")
-            "mountmgr")
-                if [ -x "$(dirname "$0")/car-edge-mount-manager.sh" ]; then
-                    konsole --hold -e "$(dirname "$0")/car-edge-mount-manager.sh" &
-                elif command -v car-edge-mount-manager.sh &>/dev/null; then
-                    konsole --hold -e car-edge-mount-manager.sh &
-                else
-                    kdialog --error "Mount Manager script not found."
-                fi
-                show_storage_menu
-                ;;
-    
+
     case "$choice" in
         "setup")
             if command -v car-edge-setup-wizard &>/dev/null; then
@@ -465,19 +493,32 @@ What would you like to do?" \
             fi
             show_storage_menu
             ;;
+        "mountmgr")
+            if command -v car-edge-mount-manager &>/dev/null; then
+                konsole --hold -e car-edge-mount-manager &
+            elif [ -x /usr/bin/car-edge-mount-manager.sh ]; then
+                konsole --hold -e /usr/bin/car-edge-mount-manager.sh &
+            else
+                kdialog --error "Mount Manager not available.\n\nPlease update to a newer build."
+            fi
+            show_storage_menu
+            ;;
         "reconfig")
-            kdialog --warningyesno "⚠️  Reconfigure Storage Drive
+            if kdialog --warningyesno "🔄 Change Storage Drive
 
-This will:
-• Keep all your existing data safe
-• Let you select a different drive
-• Remount media folders to new location
+The setup wizard will let you:
+• Mount an existing drive  (keeps all your data)
+• Format a new/different drive
 
-This does NOT delete data!
+Close any apps using /mnt/storage first.
 
-Continue?" && {
-                konsole -e bash -c "echo 'Feature coming soon!'; read -p 'Press Enter to continue...'"
-            }
+Continue?"; then
+                if command -v car-edge-setup-wizard &>/dev/null; then
+                    konsole -e car-edge-setup-wizard &
+                else
+                    kdialog --error "Setup wizard not available.\n\nPlease update to a newer build."
+                fi
+            fi
             show_storage_menu
             ;;
         "browse")
@@ -640,11 +681,105 @@ Choose an option:" \
             show_backup_menu
             ;;
         "restore")
-            kdialog --msgbox "Restore feature coming soon!\n\nFor now, backups are stored in:\n/mnt/storage/backups/configs"
+            local backup_dir="/mnt/storage/backups/configs"
+            if [ ! -d "$backup_dir" ]; then
+                kdialog --error "No backups found.\n\nBackup directory does not exist:\n$backup_dir\n\nCreate a backup first."
+            else
+                local backup_files
+                backup_files=$(ls -1t "$backup_dir"/*.tar.gz 2>/dev/null || echo "")
+                if [ -z "$backup_files" ]; then
+                    kdialog --error "No backup files found in:\n$backup_dir\n\nCreate a backup first."
+                else
+                    # Build kdialog menu items from backup list
+                    local menu_args=()
+                    local idx=0
+                    while IFS= read -r f; do
+                        local label
+                        label=$(basename "$f")
+                        menu_args+=("$f" "$label")
+                        (( idx++ )) || true
+                        [ "$idx" -ge 10 ] && break
+                    done <<< "$backup_files"
+
+                    local selected_backup
+                    selected_backup=$(kdialog --title "Restore Backup" \
+                        --menu "Select a backup to restore:\n\n(Most recent first)" \
+                        "${menu_args[@]}" "cancel" "← Cancel" 2>/dev/null || echo "cancel")
+
+                    if [ "$selected_backup" != "cancel" ] && [ -f "$selected_backup" ]; then
+                        if kdialog --warningyesno "Restore from:\n$(basename "$selected_backup")\n\nThis will overwrite current settings.\n\nContinue?"; then
+                            konsole --hold -e bash -c "
+echo 'Restoring from backup...'
+echo 'File: $selected_backup'
+echo ''
+tar xzf '$selected_backup' -C / 2>&1
+echo ''
+if [ \$? -eq 0 ]; then
+    echo '✅ Restore complete!'
+else
+    echo '❌ Restore encountered errors. Check output above.'
+fi
+read -p 'Press Enter to continue...'
+" &
+                        fi
+                    fi
+                fi
+            fi
             show_backup_menu
             ;;
         "auto")
-            kdialog --msgbox "Automatic backup configuration coming soon!"
+            local timer_file="$HOME/.config/systemd/user/car-edge-auto-backup.timer"
+            local timer_status="disabled"
+            if systemctl --user is-enabled car-edge-auto-backup.timer &>/dev/null; then
+                timer_status="enabled"
+            fi
+
+            local auto_choice
+            auto_choice=$(kdialog --title "Auto-Backup" \
+                --menu "⚙️  Automatic Backup Configuration
+
+Current status: $timer_status
+
+Daily backups save your settings to:
+/mnt/storage/backups/configs/" \
+                "enable"  "✅ Enable daily automatic backups" \
+                "disable" "❌ Disable automatic backups" \
+                "back"    "← Back" 2>/dev/null || echo "back")
+
+            case "$auto_choice" in
+                "enable")
+                    mkdir -p "$HOME/.config/systemd/user"
+                    cat > "$HOME/.config/systemd/user/car-edge-auto-backup.service" << 'SVCEOF'
+[Unit]
+Description=Bazzite Car Edge automatic backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/car-edge-backup
+SVCEOF
+                    cat > "$HOME/.config/systemd/user/car-edge-auto-backup.timer" << 'TIMEREOF'
+[Unit]
+Description=Bazzite Car Edge daily backup timer
+
+[Timer]
+OnCalendar=daily *-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+TIMEREOF
+                    systemctl --user daemon-reload 2>/dev/null || true
+                    if systemctl --user enable --now car-edge-auto-backup.timer 2>/dev/null; then
+                        kdialog --msgbox "✅ Daily backups enabled!\n\nBackups will run at 2:00 AM every day.\nSaved to: /mnt/storage/backups/configs/"
+                    else
+                        kdialog --error "Failed to enable backup timer.\n\nTry manually:\nsystemctl --user enable --now car-edge-auto-backup.timer"
+                    fi
+                    ;;
+                "disable")
+                    systemctl --user disable --now car-edge-auto-backup.timer 2>/dev/null || true
+                    kdialog --msgbox "Automatic backups disabled.\n\nYou can still back up manually from this menu."
+                    ;;
+            esac
             show_backup_menu
             ;;
         "back")

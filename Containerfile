@@ -46,6 +46,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     install -D -m 644 /ctx/files/car-edge-control-panel.desktop /usr/share/applications/car-edge-control-panel.desktop && \
     install -D -m 644 /ctx/files/car-edge-update-checker.service /etc/systemd/user/car-edge-update-checker.service && \
     install -D -m 644 /ctx/files/car-edge-update-checker.timer /etc/systemd/user/car-edge-update-checker.timer && \
+    install -D -m 440 /ctx/files/99-car-edge-storage /etc/sudoers.d/99-car-edge-storage && \
     bash /ctx/files/enable-setup-wizard.sh
     
 ### LINTING

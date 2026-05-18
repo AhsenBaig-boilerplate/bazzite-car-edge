@@ -1,0 +1,26 @@
+# Bazzite Car Edge — allow storage management without a password prompt
+# Users in the wheel group can run these specific storage commands as root.
+# This is intentional: the setup wizard and control panel need to format,
+# mount, and chown the data drive on a single-user car entertainment system.
+
+%wheel ALL=(root) NOPASSWD: \
+    /usr/bin/parted, \
+    /usr/sbin/parted, \
+    /usr/bin/wipefs, \
+    /usr/sbin/wipefs, \
+    /usr/sbin/mkfs.exfat, \
+    /usr/bin/mkfs.exfat, \
+    /usr/bin/blkid, \
+    /sbin/blkid, \
+    /usr/sbin/partprobe, \
+    /sbin/partprobe, \
+    /usr/bin/mount, \
+    /bin/mount, \
+    /usr/bin/umount, \
+    /bin/umount, \
+    /usr/bin/tee, \
+    /usr/bin/mkdir, \
+    /usr/bin/chown, \
+    /usr/bin/chmod, \
+    /usr/sbin/smartctl, \
+    /usr/bin/smartctl

@@ -173,6 +173,122 @@ Please free up space and run the wizard again."
     fi
 }
 
+# Configure Kodi, Steam, and shortcuts to point at /mnt/storage.
+# Called after both the format path and the mount-existing path so both
+# end up with a fully configured media system.
+configure_apps_for_storage() {
+    log "═══ Configuring Applications for /mnt/storage ═══"
+
+    # 1. Kodi media sources
+    log "Configuring Kodi media sources..."
+    mkdir -p ~/.var/app/tv.kodi.Kodi/data/userdata
+    cat > ~/.var/app/tv.kodi.Kodi/data/userdata/sources.xml << 'KODISOURCES'
+<sources>
+    <programs>
+        <default pathversion="1"></default>
+    </programs>
+    <video>
+        <default pathversion="1"></default>
+        <source>
+            <name>Movies</name>
+            <path pathversion="1">/mnt/storage/media/movies/</path>
+            <allowsharing>true</allowsharing>
+        </source>
+        <source>
+            <name>TV Shows</name>
+            <path pathversion="1">/mnt/storage/media/tv/</path>
+            <allowsharing>true</allowsharing>
+        </source>
+    </video>
+    <music>
+        <default pathversion="1"></default>
+        <source>
+            <name>Music</name>
+            <path pathversion="1">/mnt/storage/media/music/</path>
+            <allowsharing>true</allowsharing>
+        </source>
+    </music>
+    <pictures>
+        <default pathversion="1"></default>
+    </pictures>
+    <files>
+        <default pathversion="1"></default>
+    </files>
+</sources>
+KODISOURCES
+    log "✓ Kodi configured"
+
+    # 2. Steam library folder
+    log "Configuring Steam library..."
+    local steam_config="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/config"
+    mkdir -p "$steam_config"
+    if [ -f "$steam_config/libraryfolders.vdf" ]; then
+        cp "$steam_config/libraryfolders.vdf" "$steam_config/libraryfolders.vdf.bak"
+    fi
+    cat > "$steam_config/libraryfolders.vdf" << 'STEAMLIB'
+"libraryfolders"
+{
+	"0"
+	{
+		"path"		"/home/deck/.var/app/com.valvesoftware.Steam/.local/share/Steam"
+		"label"		""
+		"contentid"		"1234567890"
+		"totalsize"		"0"
+	}
+	"1"
+	{
+		"path"		"/mnt/storage/games/steam"
+		"label"		"Media Storage"
+		"contentid"		"1234567891"
+		"totalsize"		"0"
+	}
+}
+STEAMLIB
+    log "✓ Steam configured"
+
+    # 3. Kodi shortcut in Steam Big Picture mode
+    log "Adding Kodi to Steam shortcuts..."
+    local shortcuts_dir="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata"
+    if [ -d "$shortcuts_dir" ]; then
+        local steam_user_id
+        steam_user_id=$(ls "$shortcuts_dir" | grep -E '^[0-9]+$' | head -1 || echo "")
+        if [ -n "$steam_user_id" ]; then
+            local shortcuts_config="$shortcuts_dir/$steam_user_id/config"
+            mkdir -p "$shortcuts_config"
+            cat > "$shortcuts_config/shortcuts.vdf" << 'SHORTCUTS'
+"shortcuts"
+{
+	"0"
+	{
+		"appid"		"2730070528"
+		"AppName"		"Kodi Media Center"
+		"Exe"		"/usr/bin/flatpak"
+		"StartDir"		"/home/deck/"
+		"icon"		""
+		"ShortcutPath"		""
+		"LaunchOptions"		"run tv.kodi.Kodi"
+		"IsHidden"		"0"
+		"AllowDesktopConfig"		"1"
+		"AllowOverlay"		"1"
+		"OpenVR"		"0"
+		"Devkit"		"0"
+		"DevkitGameID"		""
+		"DevkitOverrideAppID"		"0"
+		"LastPlayTime"		"0"
+		"tags"
+		{
+			"0"		"Media"
+		}
+	}
+}
+SHORTCUTS
+            log "✓ Kodi added to Steam"
+        fi
+    fi
+
+    log "═══ Application Configuration Complete ═══"
+}
+
 # Welcome screen
 log "Showing welcome screen"
 if [ "${1:-}" = "--auto" ]; then
@@ -770,8 +886,104 @@ Check logs: $LOG_FILE"
                     continue
                 fi
                 
-                log "SAFETY CHECK PASSED: $selected_device is safe to format"
-                
+                log "SAFETY CHECK PASSED: $selected_device is safe to use"
+
+                # ─── DETECT EXISTING DATA — offer mount-without-format ───────────
+                local existing_exfat_part=""
+                while IFS= read -r part_line; do
+                    local pname ptype
+                    pname=$(echo "$part_line" | awk '{print $1}')
+                    ptype=$(echo "$part_line" | awk '{print $2}')
+                    if [ "$ptype" = "exfat" ] && [ -n "$pname" ]; then
+                        existing_exfat_part="/dev/$pname"
+                        break
+                    fi
+                done < <(lsblk -lno NAME,FSTYPE "$selected_drive" 2>/dev/null | tail -n +2)
+
+                local drive_action="format"
+                if [ -n "$existing_exfat_part" ]; then
+                    local ex_label ex_size
+                    ex_label=$(sudo blkid -s LABEL -o value "$existing_exfat_part" 2>/dev/null || echo "Unknown")
+                    ex_size=$(lsblk -lno SIZE "$existing_exfat_part" 2>/dev/null || echo "")
+                    log "Found existing exFAT partition: $existing_exfat_part (label=$ex_label, size=$ex_size)"
+
+                    drive_action=$(show_dialog --menu "💾 This drive already has data on it
+
+Drive:     $selected_drive
+Partition: $existing_exfat_part  ($ex_size, exFAT, label: $ex_label)
+
+What would you like to do?" \
+                        "mount"   "✅ Mount existing  —  keeps all your files" \
+                        "format"  "⚠️  Format drive   —  PERMANENTLY deletes everything" \
+                        "cancel"  "← Go back" 2>/dev/null || echo "cancel")
+                    log "User drive action: $drive_action"
+                fi
+
+                # ─── MOUNT EXISTING PATH ─────────────────────────────────────────
+                if [ "$drive_action" = "mount" ]; then
+                    local ex_uuid
+                    ex_uuid=$(sudo blkid -s UUID -o value "$existing_exfat_part" 2>/dev/null || echo "")
+                    if [ -z "$ex_uuid" ]; then
+                        show_error "Could not read the drive's UUID.
+
+Please check that the drive is connected and try again.
+Log: $LOG_FILE"
+                    else
+                        local mount_uid mount_gid
+                        mount_uid=$(id -u)
+                        mount_gid=$(id -g)
+
+                        # Remove any stale fstab entry for this UUID first
+                        sudo sed -i "/UUID=${ex_uuid}/d" /etc/fstab 2>/dev/null || true
+
+                        if echo "UUID=${ex_uuid} /mnt/storage exfat defaults,nofail,uid=${mount_uid},gid=${mount_gid} 0 0" \
+                               | sudo tee -a /etc/fstab > /dev/null && \
+                           sudo mkdir -p /mnt/storage && \
+                           sudo mount -a 2>&1 | tee -a "$LOG_FILE"; then
+
+                            if ! mountpoint -q /mnt/storage 2>/dev/null; then
+                                show_error "The drive was registered but did not mount.
+
+UUID: ${ex_uuid}
+Device: $existing_exfat_part
+
+Please check /etc/fstab and try:
+  sudo mount -a
+
+Log: $LOG_FILE"
+                            else
+                                # Create any missing subdirectories without touching existing files
+                                sudo mkdir -p /mnt/storage/{media/{movies,tv,music},games/{roms/{nes,snes,genesis,ps1,ps2},saves,steam},backups/configs}
+                                sudo chown -R "$USER:$USER" /mnt/storage
+
+                                log "Existing drive mounted successfully at /mnt/storage"
+                                configure_apps_for_storage
+                                show_info "✅ Drive mounted — your data is safe!
+
+Drive: $existing_exfat_part
+Label: $ex_label
+Mount: /mnt/storage
+
+All your existing files are untouched.
+The drive will auto-mount on every boot."
+                            fi
+                        else
+                            show_error "Failed to mount the drive.
+
+Device: $existing_exfat_part
+UUID: ${ex_uuid}
+
+Check /etc/fstab and try: sudo mount -a
+Log: $LOG_FILE"
+                        fi
+                    fi
+
+                elif [ "$drive_action" = "cancel" ]; then
+                    log "User cancelled drive action"
+
+                else
+                # ─── FORMAT PATH (drive_action = "format") ───────────────────────
+
                 # Find detailed info for this drive
                 selected_details=""
                 for detail in "${drive_details[@]}"; do
@@ -781,9 +993,9 @@ Check logs: $LOG_FILE"
                         break
                     fi
                 done
-                
+
                 log "Selected drive details: $selected_details"
-                
+
                 # Show detailed confirmation with all partition info
                 if show_dialog --warningyesno "⚠️  CONFIRM: FORMAT AND ERASE DRIVE ⚠️
 
@@ -863,6 +1075,11 @@ Are you ABSOLUTELY SURE?"; then
                     fi
                     log "Partition will be: $partition"
                     
+                    # Capture UID/GID now so fstab entry uses the actual logged-in user
+                    local current_uid current_gid
+                    current_uid=$(id -u)
+                    current_gid=$(id -g)
+
                     # Format drive with exFAT for cross-platform compatibility (Windows, Mac, Linux)
                     if retry_command "
                         (
@@ -874,7 +1091,7 @@ Are you ABSOLUTELY SURE?"; then
                             sudo wipefs -a $partition &&
                             sudo mkfs.exfat -n Data $partition &&
                             uuid=\$(sudo blkid -s UUID -o value $partition) &&
-                            echo \"UUID=\$uuid /mnt/storage exfat defaults,nofail,uid=1000,gid=1000 0 0\" | sudo tee -a /etc/fstab &&
+                            echo \"UUID=\$uuid /mnt/storage exfat defaults,nofail,uid=$current_uid,gid=$current_gid 0 0\" | sudo tee -a /etc/fstab &&
                             sudo mkdir -p /mnt/storage &&
                             sudo mount -a &&
                             sudo mkdir -p /mnt/storage/{media/{movies,tv,music},games/{roms/{nes,snes,genesis,ps1,ps2},saves,steam},backups/configs} &&
@@ -882,123 +1099,20 @@ Are you ABSOLUTELY SURE?"; then
                         ) 2>&1 | tee -a $LOG_FILE
                     "; then
                         log "Drive format succeeded"
-                        
-                        # ═══ AUTO-CONFIGURE APPLICATIONS ═══
-                        log "═══ Configuring Applications ═══"
-                        
-                        # 1. Configure Kodi media sources
-                        log "Configuring Kodi media sources..."
-                        mkdir -p ~/.var/app/tv.kodi.Kodi/data/userdata
-                        cat > ~/.var/app/tv.kodi.Kodi/data/userdata/sources.xml << 'KODISOURCES'
-<sources>
-    <programs>
-        <default pathversion="1"></default>
-    </programs>
-    <video>
-        <default pathversion="1"></default>
-        <source>
-            <name>Movies</name>
-            <path pathversion="1">/mnt/storage/media/movies/</path>
-            <allowsharing>true</allowsharing>
-        </source>
-        <source>
-            <name>TV Shows</name>
-            <path pathversion="1">/mnt/storage/media/tv/</path>
-            <allowsharing>true</allowsharing>
-        </source>
-    </video>
-    <music>
-        <default pathversion="1"></default>
-        <source>
-            <name>Music</name>
-            <path pathversion="1">/mnt/storage/media/music/</path>
-            <allowsharing>true</allowsharing>
-        </source>
-    </music>
-    <pictures>
-        <default pathversion="1"></default>
-    </pictures>
-    <files>
-        <default pathversion="1"></default>
-    </files>
-</sources>
-KODISOURCES
-                        log "✓ Kodi configured"
-                        
-                        # 2. Configure Steam library folder
-                        log "Configuring Steam library..."
-                        steam_config="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/config"
-                        mkdir -p "$steam_config"
-                        # Create libraryfolders.vdf if it doesn't exist or append new library
-                        if [ -f "$steam_config/libraryfolders.vdf" ]; then
-                            # Backup existing
-                            cp "$steam_config/libraryfolders.vdf" "$steam_config/libraryfolders.vdf.bak"
-                        fi
-                        cat > "$steam_config/libraryfolders.vdf" << 'STEAMLIB'
-"libraryfolders"
-{
-	"0"
-	{
-		"path"		"/home/deck/.var/app/com.valvesoftware.Steam/.local/share/Steam"
-		"label"		""
-		"contentid"		"1234567890"
-		"totalsize"		"0"
-	}
-	"1"
-	{
-		"path"		"/mnt/storage/games/steam"
-		"label"		"Media Storage"
-		"contentid"		"1234567891"
-		"totalsize"		"0"
-	}
-}
-STEAMLIB
-                        log "✓ Steam configured"
-                        
-                        # 3. Add Kodi to Steam as non-Steam game for Big Picture mode
-                        log "Adding Kodi to Steam shortcuts..."
-                        shortcuts_dir="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata"
-                        # Find the user's Steam ID directory (usually the first numeric directory)
-                        if [ -d "$shortcuts_dir" ]; then
-                            steam_user_id=$(ls "$shortcuts_dir" | grep -E '^[0-9]+$' | head -1)
-                            if [ -n "$steam_user_id" ]; then
-                                shortcuts_config="$shortcuts_dir/$steam_user_id/config"
-                                mkdir -p "$shortcuts_config"
-                                
-                                # Create shortcuts.vdf with Kodi entry
-                                cat > "$shortcuts_config/shortcuts.vdf" << 'SHORTCUTS'
-"shortcuts"
-{
-	"0"
-	{
-		"appid"		"2730070528"
-		"AppName"		"Kodi Media Center"
-		"Exe"		"/usr/bin/flatpak"
-		"StartDir"		"/home/deck/"
-		"icon"		""
-		"ShortcutPath"		""
-		"LaunchOptions"		"run tv.kodi.Kodi"
-		"IsHidden"		"0"
-		"AllowDesktopConfig"		"1"
-		"AllowOverlay"		"1"
-		"OpenVR"		"0"
-		"Devkit"		"0"
-		"DevkitGameID"		""
-		"DevkitOverrideAppID"		"0"
-		"LastPlayTime"		"0"
-		"tags"
-		{
-			"0"		"Media"
-		}
-	}
-}
-SHORTCUTS
-                                log "✓ Kodi added to Steam"
-                            fi
-                        fi
-                        
-                        log "═══ Application Configuration Complete ═══"
-                        
+
+                        # Verify the drive actually mounted
+                        if ! mountpoint -q /mnt/storage 2>/dev/null; then
+                            show_error "Format succeeded but the drive did not mount.
+
+This can happen if the filesystem driver isn't loaded yet.
+
+Please try:  sudo mount -a
+Then verify: df -h /mnt/storage
+
+Log: $LOG_FILE"
+                        else
+                        configure_apps_for_storage
+
                         show_info "✅ Storage drive configured successfully!
 
 Filesystem: exFAT (cross-platform compatible)
@@ -1022,12 +1136,15 @@ Drive Label: Data
    
 💡 This drive can be read by any device!
    Your drive will auto-mount on every boot."
+                        fi  # close post-mount verification else
                     else
                         log "Drive setup failed or was cancelled by user"
                     fi
                 else
                     log "User cancelled drive format"
                 fi
+
+                fi  # close drive_action format else branch
             else
                 log "User cancelled drive selection"
             fi
