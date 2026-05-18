@@ -23,9 +23,10 @@ rpm-ostree install \
     wget \
     jq \
     skopeo \
-    cifs-utils \
-    nfs-utils \
-    exfatprogs
+   cifs-utils \
+   nfs-utils \
+   exfatprogs \
+   code-oss
 
 echo "✅ System utilities installed"
 echo ""
