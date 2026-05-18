@@ -555,6 +555,94 @@ Continue?"; then
 }
 
 # Applications Menu
+show_kodi_menu() {
+    local autostart_state="Disabled"
+    local autostart_action="enable"
+    local autostart_label="Enable Autostart (Gaming Mode)"
+    if systemctl --user is-enabled car-edge-kodi-autostart.service &>/dev/null; then
+        autostart_state="Enabled"
+        autostart_action="disable"
+        autostart_label="Disable Autostart"
+    fi
+
+    local kodi_installed=""
+    flatpak list --app 2>/dev/null | grep -q "tv.kodi.Kodi" && kodi_installed="yes"
+
+    local choice
+    choice=$(kdialog --title "Kodi Media Center" \
+                     --menu "🎬 Kodi Configuration
+━━━━━━━━━━━━━━━━━━━━━
+Installed: ${kodi_installed:-No}
+Autostart in Gaming Mode: $autostart_state
+
+Choose an option:" \
+                     "launch"     "▶  Launch Kodi Now" \
+                     "autostart"  "⚙️  $autostart_label" \
+                     "reconfigure" "🔄 Reconfigure Media Folders" \
+                     "gaming"     "🎮 Switch to Gaming Mode" \
+                     "desktop"    "🖥️  Switch to Desktop Mode" \
+                     "back"       "← Back" 2>/dev/null || echo "back")
+
+    case "$choice" in
+        "launch")
+            if [ -z "$kodi_installed" ]; then
+                kdialog --error "Kodi is not installed.\n\nInstall it from the Application Management menu."
+            else
+                flatpak run tv.kodi.Kodi &>/dev/null &
+            fi
+            show_kodi_menu
+            ;;
+        "autostart")
+            if systemctl --user is-enabled car-edge-kodi-autostart.service &>/dev/null; then
+                systemctl --user disable --now car-edge-kodi-autostart.service 2>/dev/null || true
+                kdialog --msgbox "Kodi autostart disabled.\n\nKodi will no longer launch automatically in Gaming Mode."
+            else
+                if ! command -v car-edge-kodi-autostart &>/dev/null; then
+                    kdialog --error "Autostart script not found.\n\nPlease update to a newer build."
+                else
+                    systemctl --user enable --now car-edge-kodi-autostart.service 2>/dev/null || true
+                    kdialog --msgbox "Kodi autostart enabled.\n\nKodi will launch automatically when you enter Gaming Mode."
+                fi
+            fi
+            show_kodi_menu
+            ;;
+        "reconfigure")
+            if ! mountpoint -q /mnt/storage 2>/dev/null; then
+                kdialog --error "Data drive is not mounted.\n\nMount your storage drive first (Storage Management menu)."
+            else
+                if kdialog --warningyesno "Reconfigure Kodi media folders?\n\nThis will point Kodi to your data drive at /mnt/storage.\n\nExisting Kodi settings will be preserved."; then
+                    if command -v car-edge-setup-wizard &>/dev/null; then
+                        # Run just the app configuration step without full wizard
+                        bash -c 'source /usr/bin/car-edge-setup-wizard 2>/dev/null; configure_apps_for_storage' 2>/dev/null || \
+                            kdialog --error "Reconfiguration failed.\n\nRun the full setup wizard from the main menu."
+                        kdialog --msgbox "Kodi media folders updated.\n\n• Movies: /mnt/storage/media/movies\n• TV Shows: /mnt/storage/media/tv\n• Music: /mnt/storage/media/music\n• Photos: /mnt/storage/photos"
+                    else
+                        kdialog --error "Setup wizard not available."
+                    fi
+                fi
+            fi
+            show_kodi_menu
+            ;;
+        "gaming")
+            if command -v car-edge-gaming-mode &>/dev/null; then
+                car-edge-gaming-mode
+            else
+                kdialog --error "Gaming Mode switcher not found.\n\nPlease update to a newer build."
+            fi
+            ;;
+        "desktop")
+            if command -v car-edge-desktop-mode &>/dev/null; then
+                car-edge-desktop-mode
+            else
+                kdialog --error "Desktop Mode switcher not found.\n\nPlease update to a newer build."
+            fi
+            ;;
+        "back"|*)
+            show_apps_menu
+            ;;
+    esac
+}
+
 show_apps_menu() {
     local choice=$(kdialog --title "Application Management" \
                           --menu "📦 Install or Manage Applications
@@ -624,12 +712,7 @@ Choose an option:" \
             show_apps_menu
             ;;
         "kodi")
-            if [ -f ~/.var/app/tv.kodi.Kodi/data/userdata/sources.xml ]; then
-                kdialog --msgbox "Kodi is already configured!\n\nMedia folders:\n• Movies: /mnt/storage/media/movies\n• TV: /mnt/storage/media/tv\n• Music: /mnt/storage/media/music"
-            else
-                kdialog --error "Kodi not configured yet.\n\nRun the setup wizard first."
-            fi
-            show_apps_menu
+            show_kodi_menu
             ;;
         "steam")
             dolphin ~/.var/app/com.valvesoftware.Steam/.local/share/Steam/config &

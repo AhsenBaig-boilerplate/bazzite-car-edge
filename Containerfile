@@ -47,6 +47,10 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     install -D -m 644 /ctx/files/car-edge-update-checker.service /etc/systemd/user/car-edge-update-checker.service && \
     install -D -m 644 /ctx/files/car-edge-update-checker.timer /etc/systemd/user/car-edge-update-checker.timer && \
     install -D -m 440 /ctx/files/99-car-edge-storage /etc/sudoers.d/99-car-edge-storage && \
+    install -D -m 755 /ctx/files/car-edge-desktop-mode /usr/bin/car-edge-desktop-mode && \
+    install -D -m 755 /ctx/files/car-edge-gaming-mode /usr/bin/car-edge-gaming-mode && \
+    install -D -m 755 /ctx/files/car-edge-kodi-autostart /usr/bin/car-edge-kodi-autostart && \
+    install -D -m 644 /ctx/files/car-edge-kodi-autostart.service /etc/systemd/user/car-edge-kodi-autostart.service && \
     bash /ctx/files/enable-setup-wizard.sh
     
 ### LINTING

@@ -1,0 +1,38 @@
+#!/bin/bash
+# Launch Kodi automatically when Gaming Mode (gamescope) is active.
+# This runs as a systemd user service on session start.
+# It exits silently in Desktop Mode so Kodi only autostarts in Gaming Mode.
+
+LOG="$HOME/.cache/car-edge-kodi-autostart.log"
+mkdir -p "$(dirname "$LOG")"
+
+log() { echo "[$(date '+%H:%M:%S')] $*" >> "$LOG"; }
+
+log "Autostart check started"
+
+# Only proceed in Gaming Mode (gamescope must be the compositor)
+sleep 3
+if ! pgrep -x "gamescope" > /dev/null 2>&1; then
+    log "Not in Gaming Mode — exiting"
+    exit 0
+fi
+
+log "Gaming Mode detected — waiting for Steam to be ready"
+
+# Wait up to 60 seconds for Steam to initialise
+timeout=60
+elapsed=0
+while ! pgrep -x "steam" > /dev/null 2>&1; do
+    sleep 2
+    elapsed=$((elapsed + 2))
+    if [ "$elapsed" -ge "$timeout" ]; then
+        log "Timed out waiting for Steam — aborting"
+        exit 0
+    fi
+done
+
+# Give Steam a moment to settle before launching Kodi on top of it
+sleep 8
+log "Launching Kodi"
+flatpak run tv.kodi.Kodi >> "$LOG" 2>&1 || log "Kodi exited with error $?"
+log "Kodi closed"

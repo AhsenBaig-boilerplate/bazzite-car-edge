@@ -1,0 +1,15 @@
+[Unit]
+Description=Bazzite Car Edge — Kodi autostart in Gaming Mode
+Documentation=https://github.com/AhsenBaig-boilerplate/bazzite-car-edge
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/car-edge-kodi-autostart
+RemainAfterExit=yes
+# Don't restart — if Kodi exits the user closed it intentionally
+Restart=no
+
+[Install]
+WantedBy=graphical-session.target

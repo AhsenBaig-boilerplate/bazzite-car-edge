@@ -1,0 +1,10 @@
+#!/bin/bash
+# Switch from Desktop Mode back to Gaming Mode (Steam Big Picture / gamescope).
+# Called from the control panel or KDE autostart switcher.
+
+if command -v steamos-session-select &>/dev/null; then
+    steamos-session-select gamescope
+else
+    # Fallback: launch Steam in gamescope mode directly
+    exec /usr/bin/steam -gamepadui 2>/dev/null || true
+fi

@@ -1,0 +1,14 @@
+#!/bin/bash
+# Switch from Gaming Mode to KDE Desktop Mode.
+# Called by Kodi's "Switch to Desktop" favourite and the control panel.
+# Uses steamos-session-select (available on all Bazzite systems).
+
+if command -v steamos-session-select &>/dev/null; then
+    steamos-session-select desktop
+elif command -v qdbus &>/dev/null; then
+    # KDE fallback: request logout/switch via D-Bus
+    qdbus org.kde.Shutdown /Shutdown logout 2>/dev/null || true
+else
+    # Last resort: kill gamescope, which drops back to the display manager
+    pkill -x gamescope 2>/dev/null || true
+fi

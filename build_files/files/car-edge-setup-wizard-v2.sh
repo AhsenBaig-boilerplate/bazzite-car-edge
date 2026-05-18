@@ -179,7 +179,7 @@ Please free up space and run the wizard again."
 configure_apps_for_storage() {
     log "═══ Configuring Applications for /mnt/storage ═══"
 
-    # 1. Kodi media sources
+    # 1. Kodi media sources — all of /mnt/storage
     log "Configuring Kodi media sources..."
     mkdir -p ~/.var/app/tv.kodi.Kodi/data/userdata
     cat > ~/.var/app/tv.kodi.Kodi/data/userdata/sources.xml << 'KODISOURCES'
@@ -199,6 +199,11 @@ configure_apps_for_storage() {
             <path pathversion="1">/mnt/storage/media/tv/</path>
             <allowsharing>true</allowsharing>
         </source>
+        <source>
+            <name>All Videos</name>
+            <path pathversion="1">/mnt/storage/media/</path>
+            <allowsharing>true</allowsharing>
+        </source>
     </video>
     <music>
         <default pathversion="1"></default>
@@ -210,15 +215,70 @@ configure_apps_for_storage() {
     </music>
     <pictures>
         <default pathversion="1"></default>
+        <source>
+            <name>Photos</name>
+            <path pathversion="1">/mnt/storage/media/photos/</path>
+            <allowsharing>true</allowsharing>
+        </source>
     </pictures>
     <files>
         <default pathversion="1"></default>
+        <source>
+            <name>All Storage</name>
+            <path pathversion="1">/mnt/storage/</path>
+            <allowsharing>true</allowsharing>
+        </source>
     </files>
 </sources>
 KODISOURCES
-    log "✓ Kodi configured"
+    log "✓ Kodi sources configured"
 
-    # 2. Steam library folder
+    # 2. Kodi appearance — Estuary Dark skin, large TV-friendly font, no RSS
+    log "Configuring Kodi appearance..."
+    cat > ~/.var/app/tv.kodi.Kodi/data/userdata/guisettings.xml << 'GUISETTINGS'
+<?xml version="1.0" encoding="utf-8"?>
+<settings version="2">
+    <!-- Skin: Estuary Dark -->
+    <setting id="lookandfeel.skin" default="true">skin.estuary</setting>
+    <setting id="lookandfeel.skintheme">Dark</setting>
+    <setting id="lookandfeel.skincolors">SKINDEFAULT</setting>
+    <setting id="lookandfeel.font">Arial</setting>
+    <setting id="lookandfeel.fontsize">2.000000</setting>
+    <!-- Disable RSS ticker — cleaner UI -->
+    <setting id="lookandfeel.enablerssfeeds">false</setting>
+    <!-- Auto-scan libraries when Kodi starts -->
+    <setting id="videolibrary.updateonstartup">true</setting>
+    <setting id="videolibrary.backgroundupdate">true</setting>
+    <setting id="musiclibrary.updateonstartup">true</setting>
+    <setting id="musiclibrary.backgroundupdate">true</setting>
+    <!-- Auto-update add-ons silently -->
+    <setting id="general.addonupdates">2</setting>
+</settings>
+GUISETTINGS
+    # Estuary skin: enable Dark colour theme
+    mkdir -p ~/.var/app/tv.kodi.Kodi/data/userdata/addon_data/skin.estuary
+    cat > ~/.var/app/tv.kodi.Kodi/data/userdata/addon_data/skin.estuary/settings.xml << 'SKINSETTINGS'
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+    <setting id="ColorTheme" default="true">Dark</setting>
+    <setting id="homemenunewsfeed" default="true">false</setting>
+</settings>
+SKINSETTINGS
+    log "✓ Kodi appearance configured (Estuary Dark)"
+
+    # 3. Kodi favourites — quick access to session switching
+    log "Configuring Kodi favourites..."
+    cat > ~/.var/app/tv.kodi.Kodi/data/userdata/favourites.xml << 'KODIFAVS'
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<favourites>
+    <favourite name="🎮 Return to Gaming Mode" thumb="DefaultProgram.png">XBMC.Quit()</favourite>
+    <favourite name="🖥️  Switch to Desktop" thumb="DefaultAddonProgram.png">System.Exec(/usr/bin/car-edge-desktop-mode)</favourite>
+    <favourite name="📁 Open Storage Folder" thumb="DefaultFolder.png">ActivateWindow(FileManager,/mnt/storage/)</favourite>
+</favourites>
+KODIFAVS
+    log "✓ Kodi favourites configured"
+
+    # 4. Steam library folder
     log "Configuring Steam library..."
     local steam_config="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/config"
     mkdir -p "$steam_config"
@@ -246,7 +306,7 @@ KODISOURCES
 STEAMLIB
     log "✓ Steam configured"
 
-    # 3. Kodi shortcut in Steam Big Picture mode
+    # 5. Kodi shortcut in Steam Big Picture mode
     log "Adding Kodi to Steam shortcuts..."
     local shortcuts_dir="$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata"
     if [ -d "$shortcuts_dir" ]; then
